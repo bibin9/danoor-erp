@@ -1,0 +1,2095 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Danoor Services - Document Clearing ERP</title>
+
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2b6cb5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Danoor ERP">
+    <link rel="apple-touch-icon" href="icons/icon.svg">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Danoor ERP">
+    <meta name="msapplication-TileColor" content="#2b6cb5">
+
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+    <!-- ==================== AUTH SCREEN ==================== -->
+    <div class="auth-screen" id="authScreen" style="display:flex;">
+        <div class="auth-card">
+            <div class="auth-header">
+                <img src="logo.JPG" alt="Danoor" class="auth-logo">
+                <h1>Danoor Services</h1>
+                <p>Document Clearing Services</p>
+            </div>
+
+            <div id="authError" class="auth-error" style="display:none;"></div>
+
+            <h2 id="authTitle">Login to Danoor ERP</h2>
+
+            <!-- Login Form -->
+            <div id="loginForm">
+                <div class="auth-form-group">
+                    <label><i class="fas fa-envelope"></i> Email</label>
+                    <input type="email" id="loginEmail" class="input" placeholder="your@email.com"
+                           onkeydown="if(event.key==='Enter')handleLogin()">
+                </div>
+                <div class="auth-form-group">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <input type="password" id="loginPassword" class="input" placeholder="Enter password"
+                           onkeydown="if(event.key==='Enter')handleLogin()">
+                </div>
+                <button class="btn btn-primary auth-btn" onclick="handleLogin()">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+                <div class="auth-link">
+                    <a href="#" onclick="handleResetPassword();return false;">Forgot password?</a>
+                </div>
+            </div>
+
+            <!-- Signup Form -->
+            <div id="signupForm" style="display:none;">
+                <div class="auth-form-group">
+                    <label><i class="fas fa-user"></i> Full Name</label>
+                    <input type="text" id="signupName" class="input" placeholder="Your full name">
+                </div>
+                <div class="auth-form-group">
+                    <label><i class="fas fa-envelope"></i> Email</label>
+                    <input type="email" id="signupEmail" class="input" placeholder="your@email.com">
+                </div>
+                <div class="auth-form-group">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <input type="password" id="signupPassword" class="input" placeholder="Min 6 characters">
+                </div>
+                <div class="auth-form-group">
+                    <label><i class="fas fa-lock"></i> Confirm Password</label>
+                    <input type="password" id="signupConfirm" class="input" placeholder="Re-enter password"
+                           onkeydown="if(event.key==='Enter')handleSignup()">
+                </div>
+                <button class="btn btn-primary auth-btn" onclick="handleSignup()">
+                    <i class="fas fa-user-plus"></i> Create Account
+                </button>
+            </div>
+
+            <div class="auth-toggle" id="authToggleText">
+                Don't have an account? <a href="#" onclick="toggleAuthMode();return false;">Sign Up</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== APP SHELL (hidden until logged in) ==================== -->
+    <div id="appShell" style="display:none;">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <img src="logo.JPG" alt="Danoor" class="logo-img">
+            </div>
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <div class="company-info">
+            <span class="company-name" id="companyNameDisplay">Danoor Services</span>
+            <span class="company-sub">Documents Clearing</span>
+            <span class="company-trn">TRN: <span id="trnDisplay">100000000000000</span></span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-page="dashboard">
+                <i class="fas fa-chart-line"></i><span>Dashboard</span>
+            </a>
+            <div class="nav-section-label">Sales</div>
+            <a href="#" class="nav-item" data-page="quotations">
+                <i class="fas fa-file-lines"></i><span>Quotations</span>
+            </a>
+            <a href="#" class="nav-item" data-page="sales">
+                <i class="fas fa-file-invoice-dollar"></i><span>Invoices</span>
+            </a>
+            <div class="nav-section-label">Procurement</div>
+            <a href="#" class="nav-item" data-page="purchases">
+                <i class="fas fa-cart-shopping"></i><span>Purchase Orders</span>
+            </a>
+            <a href="#" class="nav-item" data-page="inventory">
+                <i class="fas fa-boxes-stacked"></i><span>Inventory</span>
+            </a>
+            <div class="nav-section-label">Finance & HR</div>
+            <a href="#" class="nav-item" data-page="accounting">
+                <i class="fas fa-calculator"></i><span>Accounting</span>
+            </a>
+            <a href="#" class="nav-item" data-page="reports">
+                <i class="fas fa-chart-pie"></i><span>Reports</span>
+            </a>
+            <a href="#" class="nav-item" data-page="hr">
+                <i class="fas fa-users"></i><span>HR & Payroll</span>
+            </a>
+            <div class="nav-section-label">Master Data</div>
+            <a href="#" class="nav-item" data-page="contacts">
+                <i class="fas fa-address-book"></i><span>Contacts</span>
+            </a>
+            <a href="#" class="nav-item" data-page="itemmaster">
+                <i class="fas fa-list-check"></i><span>Item Master</span>
+            </a>
+            <a href="#" class="nav-item" data-page="services">
+                <i class="fas fa-clipboard-list"></i><span>Service Catalogue</span>
+            </a>
+            <a href="#" class="nav-item" data-page="settings">
+                <i class="fas fa-gear"></i><span>Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-user">
+            <div class="user-avatar"><i class="fas fa-user-circle"></i></div>
+            <div class="user-info">
+                <span class="user-name" id="currentUserName">User</span>
+                <span class="user-email" id="currentUserEmail">user@email.com</span>
+            </div>
+            <button class="btn-icon" onclick="handleLogout()" title="Logout" style="color:rgba(255,255,255,0.7);">
+                <i class="fas fa-sign-out-alt"></i>
+            </button>
+        </div>
+        <div class="sidebar-footer">
+            <small>Danoor ERP v2.0 | <i class="fas fa-cloud"></i> Cloud Synced</small>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="mobile-toggle" id="mobileToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title" id="pageTitle">Dashboard</h1>
+            </div>
+            <div class="topbar-right">
+                <span class="currency-badge">AED</span>
+                <span class="date-display" id="dateDisplay"></span>
+            </div>
+        </header>
+
+        <!-- Page Container -->
+        <div class="page-container" id="pageContainer">
+
+            <!-- ==================== DASHBOARD ==================== -->
+            <section class="page active" id="page-dashboard">
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-icon" style="background:#e8f5e9;color:#2e7d32;">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Revenue (MTD)</span>
+                            <span class="kpi-value" id="kpiRevenue">AED 0.00</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon" style="background:#e3f2fd;color:#1565c0;">
+                            <i class="fas fa-file-invoice"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Outstanding Invoices</span>
+                            <span class="kpi-value" id="kpiOutstanding">AED 0.00</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon" style="background:#fff8e1;color:#f57f17;">
+                            <i class="fas fa-file-lines"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Open Quotations</span>
+                            <span class="kpi-value" id="kpiQuotations">0</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon" style="background:#f3e5f5;color:#7b1fa2;">
+                            <i class="fas fa-cart-shopping"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Pending POs</span>
+                            <span class="kpi-value" id="kpiPurchases">0</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon" style="background:#fff3e0;color:#e65100;">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Inventory Value</span>
+                            <span class="kpi-value" id="kpiInventory">AED 0.00</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon" style="background:#fce4ec;color:#c62828;">
+                            <i class="fas fa-user-group"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Total Employees</span>
+                            <span class="kpi-value" id="kpiEmployees">0</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- License Expiry Alerts -->
+                <div class="card" id="expiryAlertsCard" style="display:none; margin-bottom:16px; border-left:4px solid #e74c3c;">
+                    <h3 style="color:#e74c3c;margin-bottom:12px;"><i class="fas fa-bell"></i> License & Document Expiry Alerts</h3>
+                    <div id="companyExpiryAlerts"></div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="expiryAlertsTable">
+                            <thead><tr><th>Customer / Company</th><th>Document</th><th>Expiry Date</th><th>Days Left</th><th>Status</th></tr></thead>
+                            <tbody id="expiryAlertsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Monthly Revenue</h3>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Expenses Breakdown</h3>
+                        <canvas id="expenseChart"></canvas>
+                    </div>
+                </div>
+                <div class="dashboard-tables">
+                    <div class="card">
+                        <h3>Recent Invoices</h3>
+                        <table class="data-table">
+                            <thead><tr><th>Invoice #</th><th>Customer</th><th>Amount</th><th>Status</th></tr></thead>
+                            <tbody id="dashRecentInvoices"><tr><td colspan="4" class="empty-state">No invoices yet</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h3>Recent Quotations</h3>
+                        <table class="data-table">
+                            <thead><tr><th>Quote #</th><th>Customer</th><th>Amount</th><th>Status</th></tr></thead>
+                            <tbody id="dashRecentQuotations"><tr><td colspan="4" class="empty-state">No quotations yet</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h3>Pending Purchase Orders</h3>
+                        <table class="data-table">
+                            <thead><tr><th>PO #</th><th>Supplier</th><th>Amount</th><th>Status</th></tr></thead>
+                            <tbody id="dashRecentPOs"><tr><td colspan="4" class="empty-state">No purchase orders yet</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h3>Low Stock Alerts</h3>
+                        <table class="data-table">
+                            <thead><tr><th>Item</th><th>SKU</th><th>Qty</th><th>Reorder Level</th></tr></thead>
+                            <tbody id="dashLowStock"><tr><td colspan="4" class="empty-state">No low stock items</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== QUOTATIONS ==================== -->
+            <section class="page" id="page-quotations">
+                <div class="page-header">
+                    <h2>Quotations</h2>
+                    <button class="btn btn-primary" onclick="openModal('quotationModal')">
+                        <i class="fas fa-plus"></i> New Quotation
+                    </button>
+                </div>
+                <div class="filter-bar">
+                    <input type="text" id="quoteSearch" placeholder="Search quotations..." class="input" oninput="renderQuotations()">
+                    <select id="quoteStatusFilter" class="input" onchange="renderQuotations()">
+                        <option value="">All Status</option>
+                        <option value="Draft">Draft</option>
+                        <option value="Sent">Sent</option>
+                        <option value="Accepted">Accepted</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="Expired">Expired</option>
+                        <option value="Invoiced">Invoiced</option>
+                    </select>
+                </div>
+                <div class="sort-bar">
+                    <label>Sort by:</label>
+                    <select id="quoteSort" class="input input-sm" onchange="renderQuotations()">
+                        <option value="date-desc">Date (Newest)</option>
+                        <option value="date-asc">Date (Oldest)</option>
+                        <option value="number-desc">Quote # (Desc)</option>
+                        <option value="number-asc">Quote # (Asc)</option>
+                        <option value="customer-asc">Customer (A-Z)</option>
+                        <option value="customer-desc">Customer (Z-A)</option>
+                        <option value="total-desc">Total (High-Low)</option>
+                        <option value="total-asc">Total (Low-High)</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Quote #</th>
+                                <th>Date</th>
+                                <th>Valid Until</th>
+                                <th>Customer</th>
+                                <th>Service</th>
+                                <th>Subtotal</th>
+                                <th>VAT</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="quotationsTableBody">
+                            <tr><td colspan="10" class="empty-state">No quotations yet. Create your first quotation!</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination-bar" id="quotationsPagination"></div>
+                </div>
+            </section>
+
+            <!-- ==================== SALES & INVOICES ==================== -->
+            <section class="page" id="page-sales">
+                <div class="page-header">
+                    <h2>Sales & Income</h2>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="resetInvoiceForm();openModal('invoiceModal')">
+                            <i class="fas fa-plus"></i> New Invoice
+                        </button>
+                        <button class="btn btn-secondary" onclick="openModal('cashMemoModal')">
+                            <i class="fas fa-money-bill-wave"></i> Cash Memo
+                        </button>
+                    </div>
+                </div>
+                <div class="tabs">
+                    <button class="tab active" data-tab="invoicesList">Invoices</button>
+                    <button class="tab" data-tab="cashMemos">Cash Memos / Adhoc Income</button>
+                </div>
+                <div class="tab-content active" id="tab-invoicesList">
+                <div class="filter-bar">
+                    <input type="text" id="salesSearch" placeholder="Search invoices..." class="input" oninput="setPage('invoices',1);renderInvoices()">
+                    <select id="salesCustomerFilter" class="input" onchange="setPage('invoices',1);renderInvoices()">
+                        <option value="">All Customers</option>
+                    </select>
+                    <select id="salesStatusFilter" class="input" onchange="setPage('invoices',1);renderInvoices()">
+                        <option value="">All Status</option>
+                        <option value="Draft">Draft</option>
+                        <option value="Sent">Sent</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Overdue">Overdue</option>
+                    </select>
+                </div>
+                <div class="sort-bar">
+                    <label>Sort by:</label>
+                    <select id="salesSort" class="input input-sm" onchange="renderInvoices()">
+                        <option value="date-desc">Date (Newest)</option>
+                        <option value="date-asc">Date (Oldest)</option>
+                        <option value="number-desc">Invoice # (Desc)</option>
+                        <option value="number-asc">Invoice # (Asc)</option>
+                        <option value="customer-asc">Customer (A-Z)</option>
+                        <option value="customer-desc">Customer (Z-A)</option>
+                        <option value="total-desc">Total (High-Low)</option>
+                        <option value="total-asc">Total (Low-High)</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Invoice #</th>
+                                <th>Date</th>
+                                <th>Customer</th>
+                                <th>Title</th>
+                                <th>Subtotal</th>
+                                <th>VAT</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoicesTableBody">
+                            <tr><td colspan="9" class="empty-state">No invoices yet. Create your first invoice!</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination-bar" id="invoicesPagination"></div>
+                </div>
+                <div class="vat-summary card" style="margin-top:20px;">
+                    <h3><i class="fas fa-landmark"></i> VAT Summary (Current Quarter)</h3>
+                    <div class="vat-grid">
+                        <div><span class="label">Output VAT (Sales)</span><span class="value" id="outputVat">AED 0.00</span></div>
+                        <div><span class="label">Input VAT (Purchases)</span><span class="value" id="inputVat">AED 0.00</span></div>
+                        <div><span class="label">Net VAT Payable</span><span class="value highlight" id="netVat">AED 0.00</span></div>
+                    </div>
+                </div>
+                </div><!-- /tab-invoicesList -->
+
+                <div class="tab-content" id="tab-cashMemos">
+                    <div class="filter-bar">
+                        <input type="text" id="cashMemoSearch" placeholder="Search cash memos..." class="input" oninput="setPage('cashMemos',1);renderCashMemos()">
+                        <select id="cashMemoSort" class="input" onchange="renderCashMemos()">
+                            <option value="date-desc">Date (Newest)</option>
+                            <option value="date-asc">Date (Oldest)</option>
+                            <option value="amount-desc">Amount (High-Low)</option>
+                        </select>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Receipt #</th>
+                                    <th>Customer / Source</th>
+                                    <th>Description</th>
+                                    <th>Amount (AED)</th>
+                                    <th>Payment Mode</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cashMemosTableBody">
+                                <tr><td colspan="7" class="empty-state">No cash memos yet</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="pagination-bar" id="cashMemosPagination"></div>
+                    </div>
+                </div><!-- /tab-cashMemos -->
+            </section>
+
+            <!-- ==================== PURCHASE ORDERS ==================== -->
+            <section class="page" id="page-purchases">
+                <div class="page-header">
+                    <h2>Purchase Orders</h2>
+                    <button class="btn btn-primary" onclick="openModal('purchaseModal')">
+                        <i class="fas fa-plus"></i> New Purchase Order
+                    </button>
+                </div>
+                <div class="filter-bar">
+                    <input type="text" id="poSearch" placeholder="Search purchase orders..." class="input" oninput="renderPurchases()">
+                    <select id="poStatusFilter" class="input" onchange="renderPurchases()">
+                        <option value="">All Status</option>
+                        <option value="Draft">Draft</option>
+                        <option value="Sent">Sent</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Received">Received</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="sort-bar">
+                    <label>Sort by:</label>
+                    <select id="poSort" class="input input-sm" onchange="renderPurchases()">
+                        <option value="date-desc">Date (Newest)</option>
+                        <option value="date-asc">Date (Oldest)</option>
+                        <option value="number-desc">PO # (Desc)</option>
+                        <option value="number-asc">PO # (Asc)</option>
+                        <option value="supplier-asc">Supplier (A-Z)</option>
+                        <option value="supplier-desc">Supplier (Z-A)</option>
+                        <option value="total-desc">Total (High-Low)</option>
+                        <option value="total-asc">Total (Low-High)</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>PO #</th>
+                                <th>Date</th>
+                                <th>Supplier</th>
+                                <th>Subtotal</th>
+                                <th>VAT</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="purchasesTableBody">
+                            <tr><td colspan="8" class="empty-state">No purchase orders yet</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination-bar" id="purchasesPagination"></div>
+                </div>
+                <div class="card" style="margin-top:20px;">
+                    <h3><i class="fas fa-chart-bar"></i> Purchase Summary (Current Month)</h3>
+                    <div class="vat-grid">
+                        <div><span class="label">Total Purchases</span><span class="value" id="totalPurchases">AED 0.00</span></div>
+                        <div><span class="label">Pending Payment</span><span class="value" id="pendingPayment">AED 0.00</span></div>
+                        <div><span class="label">Input VAT</span><span class="value" id="purchaseInputVat">AED 0.00</span></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== INVENTORY ==================== -->
+            <section class="page" id="page-inventory">
+                <div class="page-header">
+                    <h2>Inventory Management</h2>
+                    <button class="btn btn-primary" onclick="openModal('inventoryModal')">
+                        <i class="fas fa-plus"></i> Add Item
+                    </button>
+                </div>
+                <div class="filter-bar">
+                    <input type="text" id="invSearch" placeholder="Search items..." class="input" oninput="renderInventory()">
+                    <select id="invCategoryFilter" class="input" onchange="renderInventory()">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                <div class="sort-bar">
+                    <label>Sort by:</label>
+                    <select id="inventorySort" class="input input-sm" onchange="renderInventory()">
+                        <option value="name-asc">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                        <option value="sku-asc">SKU (A-Z)</option>
+                        <option value="qty-desc">Qty (High-Low)</option>
+                        <option value="qty-asc">Qty (Low-High)</option>
+                        <option value="value-desc">Value (High-Low)</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Item Name</th>
+                                <th>Category</th>
+                                <th>Qty</th>
+                                <th>Unit Cost</th>
+                                <th>Sell Price</th>
+                                <th>Value</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody">
+                            <tr><td colspan="8" class="empty-state">No inventory items yet</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination-bar" id="inventoryPagination"></div>
+                </div>
+            </section>
+
+            <!-- ==================== ACCOUNTING ==================== -->
+            <section class="page" id="page-accounting">
+                <div class="page-header">
+                    <h2>Accounting</h2>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="openModal('journalModal')">
+                            <i class="fas fa-plus"></i> Journal Entry
+                        </button>
+                        <button class="btn btn-secondary" onclick="openModal('expenseModal')">
+                            <i class="fas fa-receipt"></i> Record Expense
+                        </button>
+                    </div>
+                </div>
+                <div class="tabs">
+                    <button class="tab active" data-tab="coa">Chart of Accounts</button>
+                    <button class="tab" data-tab="journal">Journal Entries</button>
+                    <button class="tab" data-tab="expenses">Expenses</button>
+                    <button class="tab" data-tab="pnl">Profit & Loss</button>
+                </div>
+                <div class="tab-content active" id="tab-coa">
+                    <table class="data-table">
+                        <thead><tr><th>Code</th><th>Account Name</th><th>Type</th><th>Balance (AED)</th></tr></thead>
+                        <tbody id="coaTableBody"></tbody>
+                    </table>
+                </div>
+                <div class="tab-content" id="tab-journal">
+                    <table class="data-table">
+                        <thead><tr><th>Date</th><th>Reference</th><th>Description</th><th>Debit</th><th>Credit</th></tr></thead>
+                        <tbody id="journalTableBody">
+                            <tr><td colspan="5" class="empty-state">No journal entries yet</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tab-content" id="tab-expenses">
+                    <div class="filter-bar">
+                        <select id="expSupplierFilter" class="input" onchange="setPage('expenses',1);renderExpenses()">
+                            <option value="">All Suppliers</option>
+                        </select>
+                        <select id="expCategoryFilter" class="input" onchange="setPage('expenses',1);renderExpenses()">
+                            <option value="">All Categories</option>
+                            <option value="Government Fees">Government Fees</option>
+                            <option value="Typing Centre">Typing Centre</option>
+                            <option value="Amer/Tas-heel">Amer/Tas-heel</option>
+                            <option value="Salaries">Salaries</option>
+                            <option value="Rent">Rent</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Office Supplies">Office Supplies</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Insurance">Insurance</option>
+                            <option value="Professional Fees">Professional Fees</option>
+                            <option value="Maintenance">Maintenance</option>
+                            <option value="Miscellaneous">Miscellaneous</option>
+                        </select>
+                    </div>
+                    <div class="sort-bar">
+                        <label>Sort by:</label>
+                        <select id="expenseSort" class="input input-sm" onchange="renderExpenses()">
+                            <option value="date-desc">Date (Newest)</option>
+                            <option value="date-asc">Date (Oldest)</option>
+                            <option value="category-asc">Category (A-Z)</option>
+                            <option value="category-desc">Category (Z-A)</option>
+                            <option value="amount-desc">Amount (High-Low)</option>
+                            <option value="amount-asc">Amount (Low-High)</option>
+                        </select>
+                    </div>
+                    <table class="data-table">
+                        <thead><tr><th>Date</th><th>Category</th><th>Supplier</th><th>Description</th><th>Amount (AED)</th><th>VAT</th><th>Actions</th></tr></thead>
+                        <tbody id="expensesTableBody">
+                            <tr><td colspan="7" class="empty-state">No expenses recorded</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination-bar" id="expensesPagination"></div>
+                </div>
+                <div class="tab-content" id="tab-pnl">
+                    <div class="pnl-report" id="pnlReport">
+                        <div class="pnl-section">
+                            <h3>Revenue</h3>
+                            <div class="pnl-line"><span>Service Revenue</span><span id="pnlRevenue">AED 0.00</span></div>
+                            <div class="pnl-total"><span>Total Revenue</span><span id="pnlTotalRevenue">AED 0.00</span></div>
+                        </div>
+                        <div class="pnl-section">
+                            <h3>Cost of Services</h3>
+                            <div id="pnlCostLines"></div>
+                            <div class="pnl-total"><span>Total Cost of Services</span><span id="pnlTotalCost">AED 0.00</span></div>
+                        </div>
+                        <div class="pnl-section">
+                            <div class="pnl-total"><span>Gross Profit</span><span id="pnlGross">AED 0.00</span></div>
+                        </div>
+                        <div class="pnl-section">
+                            <h3>Operating Expenses</h3>
+                            <div id="pnlExpenseLines"></div>
+                            <div class="pnl-total"><span>Total Operating Expenses</span><span id="pnlTotalExpenses">AED 0.00</span></div>
+                        </div>
+                        <div class="pnl-section pnl-net">
+                            <div class="pnl-total highlight"><span>Net Profit / (Loss)</span><span id="pnlNet">AED 0.00</span></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== HR & PAYROLL ==================== -->
+            <section class="page" id="page-hr">
+                <div class="page-header">
+                    <h2>HR & Payroll</h2>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="openModal('employeeModal')">
+                            <i class="fas fa-plus"></i> Add Employee
+                        </button>
+                        <button class="btn btn-secondary" onclick="runPayroll()">
+                            <i class="fas fa-money-check"></i> Run Payroll
+                        </button>
+                    </div>
+                </div>
+                <div class="tabs">
+                    <button class="tab active" data-tab="employees">Employees</button>
+                    <button class="tab" data-tab="payroll">Payroll History</button>
+                    <button class="tab" data-tab="gratuity">Gratuity Calculator</button>
+                </div>
+                <div class="tab-content active" id="tab-employees">
+                    <div class="sort-bar">
+                        <label>Sort by:</label>
+                        <select id="employeeSort" class="input input-sm" onchange="renderEmployees()">
+                            <option value="name-asc">Name (A-Z)</option>
+                            <option value="name-desc">Name (Z-A)</option>
+                            <option value="empId-asc">Emp ID (Asc)</option>
+                            <option value="joinDate-desc">Join Date (Newest)</option>
+                            <option value="joinDate-asc">Join Date (Oldest)</option>
+                            <option value="salary-desc">Salary (High-Low)</option>
+                            <option value="salary-asc">Salary (Low-High)</option>
+                        </select>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Emp ID</th>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Department</th>
+                                    <th>Join Date</th>
+                                    <th>Basic Salary</th>
+                                    <th>Allowances</th>
+                                    <th>Total</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employeesTableBody">
+                                <tr><td colspan="9" class="empty-state">No employees yet</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="pagination-bar" id="employeesPagination"></div>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-payroll">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Month</th><th>Employees</th><th>Total Basic</th><th>Total Allowances</th><th>Deductions</th><th>Net Payroll</th></tr>
+                            </thead>
+                            <tbody id="payrollTableBody">
+                                <tr><td colspan="6" class="empty-state">No payroll runs yet</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-gratuity">
+                    <div class="card gratuity-calc">
+                        <h3>End of Service Gratuity Calculator (UAE Labor Law)</h3>
+                        <p class="info-text">As per UAE Federal Decree-Law No. 33 of 2021</p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Basic Salary (AED)</label>
+                                <input type="number" id="gratBasic" class="input" placeholder="e.g. 5000">
+                            </div>
+                            <div class="form-group">
+                                <label>Years of Service</label>
+                                <input type="number" id="gratYears" class="input" step="0.1" placeholder="e.g. 3.5">
+                            </div>
+                            <div class="form-group">
+                                <label>Termination Type</label>
+                                <select id="gratType" class="input">
+                                    <option value="employer">Terminated by Employer</option>
+                                    <option value="resign">Resignation</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="calculateGratuity()">Calculate</button>
+                        <div class="gratuity-result" id="gratuityResult" style="display:none;">
+                            <h4>Estimated Gratuity: <span id="gratuityAmount">AED 0.00</span></h4>
+                            <p id="gratuityBreakdown"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== CONTACTS ==================== -->
+            <section class="page" id="page-contacts">
+                <div class="page-header">
+                    <h2>Contacts</h2>
+                    <button class="btn btn-primary" onclick="openModal('contactModal')">
+                        <i class="fas fa-plus"></i> Add Contact
+                    </button>
+                </div>
+                <div class="filter-bar">
+                    <input type="text" id="contactSearch" placeholder="Search contacts..." class="input" oninput="renderContacts()">
+                    <select id="contactTypeFilter" class="input" onchange="renderContacts()">
+                        <option value="">All Types</option>
+                        <option value="Customer">Customer</option>
+                        <option value="Supplier">Supplier</option>
+                        <option value="Both">Both</option>
+                    </select>
+                </div>
+                <div class="sort-bar">
+                    <label>Sort by:</label>
+                    <select id="contactSort" class="input input-sm" onchange="renderContacts()">
+                        <option value="name-asc">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                        <option value="type-asc">Type (A-Z)</option>
+                        <option value="balance-desc">Balance (High-Low)</option>
+                        <option value="balance-asc">Balance (Low-High)</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Phone</th>
+                                <th>City</th>
+                                <th>License Expiry</th>
+                                <th>Visa/EID Expiry</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contactsTableBody">
+                            <tr><td colspan="7" class="empty-state">No contacts yet</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination-bar" id="contactsPagination"></div>
+                </div>
+            </section>
+
+            <!-- ==================== SERVICE CATALOGUE ==================== -->
+            <!-- ==================== ITEM MASTER ==================== -->
+            <section class="page" id="page-itemmaster">
+                <div class="page-header">
+                    <h2>Item Master</h2>
+                    <button class="btn btn-primary" onclick="resetItemMasterForm();openModal('itemMasterModal')">
+                        <i class="fas fa-plus"></i> Add Item
+                    </button>
+                </div>
+                <p class="page-desc">Define common invoice line items for UAE Visa processing, Company Formation, and other services. These appear as quick-select options when creating invoices.</p>
+                <div class="sort-bar">
+                    <label>Sort by:</label>
+                    <select id="itemMasterSort" class="input input-sm" onchange="renderItemMaster()">
+                        <option value="name-asc">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                        <option value="category-asc">Category (A-Z)</option>
+                        <option value="code-asc">Code (A-Z)</option>
+                        <option value="total-desc">Price (High-Low)</option>
+                        <option value="total-asc">Price (Low-High)</option>
+                    </select>
+                    <input type="text" id="itemMasterSearch" class="input input-sm" placeholder="Search items..." oninput="renderItemMaster()" style="margin-left:12px;width:200px;">
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Item Name</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Default Price (AED)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemMasterTableBody">
+                            <tr><td colspan="6" class="empty-state">No items defined yet</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination-bar" id="itemMasterPagination"></div>
+                </div>
+            </section>
+
+            <section class="page" id="page-services">
+                <div class="page-header">
+                    <h2>Service Catalogue</h2>
+                    <button class="btn btn-primary" onclick="openModal('serviceModal')">
+                        <i class="fas fa-plus"></i> Add Service
+                    </button>
+                </div>
+                <p class="page-desc">Define your document clearing services with standard pricing. These can be quickly added to quotations and invoices.</p>
+                <div class="sort-bar">
+                    <label>Sort by:</label>
+                    <select id="serviceSort" class="input input-sm" onchange="renderServices()">
+                        <option value="code-asc">Code (A-Z)</option>
+                        <option value="name-asc">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                        <option value="category-asc">Category (A-Z)</option>
+                        <option value="total-desc">Total Fee (High-Low)</option>
+                        <option value="total-asc">Total Fee (Low-High)</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Service Name</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Govt Fee (AED)</th>
+                                <th>Service Fee (AED)</th>
+                                <th>Total (AED)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="servicesTableBody">
+                            <tr><td colspan="8" class="empty-state">No services defined yet</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination-bar" id="servicesPagination"></div>
+                </div>
+            </section>
+
+            <!-- ==================== REPORTS ==================== -->
+            <section class="page" id="page-reports">
+                <div class="page-header">
+                    <h2>Reports</h2>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" onclick="exportReportCSV()">
+                            <i class="fas fa-file-csv"></i> Export CSV
+                        </button>
+                        <button class="btn btn-primary" onclick="printReport()">
+                            <i class="fas fa-print"></i> Print Report
+                        </button>
+                    </div>
+                </div>
+                <div class="tabs">
+                    <button class="tab active" data-tab="rptPnl">Profit & Loss</button>
+                    <button class="tab" data-tab="rptRevenue">Revenue Analysis</button>
+                    <button class="tab" data-tab="rptVat">VAT Report</button>
+                    <button class="tab" data-tab="rptAging">Receivables Aging</button>
+                </div>
+
+                <!-- P&L Report with Chart -->
+                <div class="tab-content active" id="tab-rptPnl">
+                    <div class="report-filter-bar">
+                        <div class="form-group">
+                            <label>Period</label>
+                            <select id="rptPnlPeriod" class="input" onchange="renderReportPnL()">
+                                <option value="month">This Month</option>
+                                <option value="quarter">This Quarter</option>
+                                <option value="year" selected>This Year</option>
+                                <option value="all">All Time</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="report-charts-row">
+                        <div class="card report-chart-card">
+                            <h4>Revenue vs Expenses</h4>
+                            <canvas id="rptPnlChart" height="260"></canvas>
+                        </div>
+                        <div class="card report-chart-card">
+                            <h4>Expense Breakdown</h4>
+                            <canvas id="rptExpBreakdownChart" height="260"></canvas>
+                        </div>
+                    </div>
+                    <div class="card report-summary" id="rptPnlSummary">
+                        <div class="report-kpi-row">
+                            <div class="report-kpi"><div class="report-kpi-label">Total Revenue</div><div class="report-kpi-value" id="rptTotalRevenue">AED 0.00</div></div>
+                            <div class="report-kpi"><div class="report-kpi-label">Cost of Services</div><div class="report-kpi-value" id="rptTotalCost">AED 0.00</div></div>
+                            <div class="report-kpi"><div class="report-kpi-label">Gross Profit</div><div class="report-kpi-value" id="rptGrossProfit">AED 0.00</div></div>
+                            <div class="report-kpi"><div class="report-kpi-label">Operating Expenses</div><div class="report-kpi-value" id="rptTotalExpenses">AED 0.00</div></div>
+                            <div class="report-kpi highlight"><div class="report-kpi-label">Net Profit / (Loss)</div><div class="report-kpi-value" id="rptNetProfit">AED 0.00</div></div>
+                        </div>
+                        <div class="pnl-report" id="rptPnlDetail"></div>
+                    </div>
+                </div>
+
+                <!-- Revenue Analysis -->
+                <div class="tab-content" id="tab-rptRevenue">
+                    <div class="report-filter-bar">
+                        <div class="form-group">
+                            <label>Period</label>
+                            <select id="rptRevPeriod" class="input" onchange="renderRevenueReport()">
+                                <option value="6">Last 6 Months</option>
+                                <option value="12" selected>Last 12 Months</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card report-chart-card" style="max-width:100%;">
+                        <h4>Monthly Revenue Trend</h4>
+                        <canvas id="rptRevenueChart" height="300"></canvas>
+                    </div>
+                    <div class="card">
+                        <h4>Revenue by Customer</h4>
+                        <table class="data-table" id="rptRevenueByCustomer">
+                            <thead><tr><th>Customer</th><th>Invoices</th><th>Subtotal</th><th>VAT</th><th>Total (AED)</th></tr></thead>
+                            <tbody id="rptRevCustBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- VAT Report -->
+                <div class="tab-content" id="tab-rptVat">
+                    <div class="report-filter-bar">
+                        <div class="form-group">
+                            <label>Period</label>
+                            <select id="rptVatPeriod" class="input" onchange="renderVatReport()">
+                                <option value="month">This Month</option>
+                                <option value="quarter" selected>This Quarter</option>
+                                <option value="year">This Year</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card report-summary">
+                        <div class="report-kpi-row">
+                            <div class="report-kpi"><div class="report-kpi-label">Output VAT (Sales)</div><div class="report-kpi-value" id="rptOutputVat">AED 0.00</div></div>
+                            <div class="report-kpi"><div class="report-kpi-label">Input VAT (Purchases)</div><div class="report-kpi-value" id="rptInputVat">AED 0.00</div></div>
+                            <div class="report-kpi highlight"><div class="report-kpi-label">Net VAT Payable</div><div class="report-kpi-value" id="rptNetVat">AED 0.00</div></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h4>VAT Transactions</h4>
+                        <table class="data-table">
+                            <thead><tr><th>Date</th><th>Document</th><th>Party</th><th>Subtotal</th><th>VAT Rate</th><th>VAT Amount</th><th>Type</th></tr></thead>
+                            <tbody id="rptVatBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Receivables Aging -->
+                <div class="tab-content" id="tab-rptAging">
+                    <div class="card report-summary">
+                        <div class="report-kpi-row">
+                            <div class="report-kpi"><div class="report-kpi-label">Current (0-30 days)</div><div class="report-kpi-value" id="rptAging030">AED 0.00</div></div>
+                            <div class="report-kpi"><div class="report-kpi-label">31-60 Days</div><div class="report-kpi-value" id="rptAging3160">AED 0.00</div></div>
+                            <div class="report-kpi"><div class="report-kpi-label">61-90 Days</div><div class="report-kpi-value" id="rptAging6190">AED 0.00</div></div>
+                            <div class="report-kpi highlight"><div class="report-kpi-label">90+ Days (Overdue)</div><div class="report-kpi-value" id="rptAging90">AED 0.00</div></div>
+                        </div>
+                    </div>
+                    <div class="card report-chart-card" style="max-width:100%;">
+                        <canvas id="rptAgingChart" height="250"></canvas>
+                    </div>
+                    <div class="card">
+                        <h4>Outstanding Invoices</h4>
+                        <table class="data-table">
+                            <thead><tr><th>Invoice</th><th>Customer</th><th>Date</th><th>Due Date</th><th>Amount</th><th>Days Outstanding</th><th>Status</th></tr></thead>
+                            <tbody id="rptAgingBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== SETTINGS ==================== -->
+            <section class="page" id="page-settings">
+                <div class="page-header">
+                    <h2>Company Settings</h2>
+                </div>
+                <div class="card settings-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Company Name</label>
+                            <input type="text" id="settCompanyName" class="input" value="Danoor Services">
+                        </div>
+                        <div class="form-group">
+                            <label>TRN (Tax Registration Number)</label>
+                            <input type="text" id="settTRN" class="input" placeholder="100000000000000" maxlength="15">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Business Type</label>
+                            <input type="text" id="settBusinessType" class="input" value="Document Clearing Services">
+                        </div>
+                        <div class="form-group">
+                            <label>Trade License No.</label>
+                            <input type="text" id="settLicense" class="input" placeholder="DED License Number">
+                        </div>
+                    </div>
+                    <h4 style="margin-top:16px;color:var(--primary);"><i class="fas fa-calendar-check"></i> Company License Expiry Dates</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Trade License Expiry</label>
+                            <input type="date" id="settLicenseExpiry" class="input">
+                        </div>
+                        <div class="form-group">
+                            <label>Immigration Card Expiry</label>
+                            <input type="date" id="settImmigrationExpiry" class="input">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Establishment Card Expiry</label>
+                            <input type="date" id="settEstabExpiry" class="input">
+                        </div>
+                        <div class="form-group">
+                            <label>Lease/Tenancy Expiry</label>
+                            <input type="date" id="settLeaseExpiry" class="input">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Address</label>
+                            <input type="text" id="settAddress" class="input" placeholder="Office 123, Business Bay, Dubai, UAE">
+                        </div>
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input type="text" id="settPhone" class="input" placeholder="+971 4 XXX XXXX">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="settEmail" class="input" placeholder="info@danoor.ae">
+                        </div>
+                        <div class="form-group">
+                            <label>Financial Year Start</label>
+                            <select id="settFYStart" class="input">
+                                <option value="01">January</option>
+                                <option value="04">April</option>
+                                <option value="06">June</option>
+                            </select>
+                        </div>
+                    </div>
+                    <h4 style="margin-top:16px;">Bank & Website Details</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>IBAN</label>
+                            <input type="text" id="settIBAN" class="input" placeholder="AE00 0000 0000 0000 0000 000">
+                        </div>
+                        <div class="form-group">
+                            <label>Account Title</label>
+                            <input type="text" id="settAccountTitle" class="input" placeholder="DANOOR DOCUMENTS CLEARING SERVICES">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>SWIFT Code</label>
+                            <input type="text" id="settSWIFT" class="input" placeholder="ABORAEXX">
+                        </div>
+                        <div class="form-group">
+                            <label>Website</label>
+                            <input type="text" id="settWebsite" class="input" placeholder="www.danoor.ae">
+                        </div>
+                    </div>
+                    <h4 style="margin-top:16px;">Document Numbering</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Quotation Prefix</label>
+                            <input type="text" id="settQuotePrefix" class="input" value="QT-">
+                        </div>
+                        <div class="form-group">
+                            <label>Next Quote #</label>
+                            <input type="number" id="settQuoteNext" class="input" value="1001">
+                        </div>
+                        <div class="form-group">
+                            <label>Invoice Prefix</label>
+                            <input type="text" id="settInvPrefix" class="input" value="INV-">
+                        </div>
+                        <div class="form-group">
+                            <label>Next Invoice #</label>
+                            <input type="number" id="settInvNext" class="input" value="1001">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>PO Prefix</label>
+                            <input type="text" id="settPOPrefix" class="input" value="PO-">
+                        </div>
+                        <div class="form-group">
+                            <label>Next PO #</label>
+                            <input type="number" id="settPONext" class="input" value="1001">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSettings()">
+                        <i class="fas fa-save"></i> Save Settings
+                    </button>
+                    <div style="margin-top:30px; border-top:1px solid #e0e0e0; padding-top:20px;">
+                        <h3><i class="fas fa-database" style="color:var(--primary);"></i> Backup & Restore</h3>
+                        <p style="font-size:0.85rem;color:#666;margin-bottom:12px;">Daily backup reminder appears automatically when you log in. Backups are downloaded as JSON files to your device.</p>
+                        <div id="lastBackupDisplay" style="margin-bottom:12px;font-size:0.9rem;"></div>
+                        <button class="btn btn-primary" onclick="exportAllData()">
+                            <i class="fas fa-download"></i> Backup Now
+                        </button>
+                        <button class="btn btn-secondary" onclick="importBackup()" style="margin-left:10px;">
+                            <i class="fas fa-upload"></i> Restore from Backup
+                        </button>
+                    </div>
+                    <div style="margin-top:30px; border-top:1px solid #e0e0e0; padding-top:20px;">
+                        <h3 style="color:#c62828;">Danger Zone</h3>
+                        <button class="btn btn-danger" onclick="if(confirm('Are you sure? This will DELETE all data permanently!')){localStorage.clear();location.reload();}">
+                            <i class="fas fa-trash"></i> Reset All Data
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- Quotation Modal -->
+    <div class="modal-overlay" id="quotationModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 id="quotationModalTitle">New Quotation</h3>
+                <button class="modal-close" onclick="closeModal('quotationModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="quoteEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Customer</label>
+                        <select id="quoteCustomer" class="input"><option value="">Select Customer</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Quote Date</label>
+                        <input type="date" id="quoteDate" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Valid Until</label>
+                        <input type="date" id="quoteValidUntil" class="input">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="quoteStatus" class="input">
+                            <option value="Draft">Draft</option>
+                            <option value="Sent">Sent</option>
+                            <option value="Accepted">Accepted</option>
+                            <option value="Rejected">Rejected</option>
+                            <option value="Expired">Expired</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Reference / Subject</label>
+                        <input type="text" id="quoteSubject" class="input" placeholder="e.g. Visa processing for 5 employees">
+                    </div>
+                </div>
+                <h4 style="margin-top:15px;">Services & Line Items</h4>
+                <div class="form-group">
+                    <label>Quick Add Service</label>
+                    <select id="quoteServicePicker" class="input" onchange="addServiceToQuote()">
+                        <option value="">-- Pick from catalogue --</option>
+                    </select>
+                </div>
+                <table class="data-table" id="quoteLineItems">
+                    <thead><tr><th>Description</th><th>Govt Fee</th><th>Service Fee</th><th>Qty</th><th>Amount</th><th></th></tr></thead>
+                    <tbody id="quoteLineItemsBody">
+                        <tr>
+                            <td><input type="text" class="input qt-desc" placeholder="Service description"></td>
+                            <td><input type="number" class="input qt-govt" value="0" step="0.01" oninput="calcQuoteTotal()"></td>
+                            <td><input type="number" class="input qt-svc" value="0" step="0.01" oninput="calcQuoteTotal()"></td>
+                            <td><input type="number" class="input qt-qty" value="1" min="1" oninput="calcQuoteTotal()"></td>
+                            <td class="qt-line-total">0.00</td>
+                            <td><button class="btn-icon" onclick="removeQuoteLine(this)"><i class="fas fa-trash"></i></button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button class="btn btn-secondary btn-sm" onclick="addQuoteLine()"><i class="fas fa-plus"></i> Add Line</button>
+                <div class="invoice-totals">
+                    <div><span>Subtotal:</span><span id="quoteSubtotal">AED 0.00</span></div>
+                    <div class="vat-row"><span>VAT:</span>
+                        <select id="quoteVatRate" class="input input-sm vat-select" onchange="calcQuoteTotal()">
+                            <option value="0">No VAT (0%)</option>
+                            <option value="0.05">5%</option>
+                        </select>
+                        <span id="quoteVat">AED 0.00</span>
+                    </div>
+                    <div class="total-line"><span>Total:</span><span id="quoteTotal">AED 0.00</span></div>
+                </div>
+                <div class="form-group">
+                    <label>Terms & Conditions</label>
+                    <textarea id="quoteTerms" class="input" rows="3" placeholder="Payment terms, validity, special conditions...">- Payment: 50% advance, 50% upon completion
+- Government fees are subject to change without notice
+- Processing time depends on government authority workload
+- All prices are in AED and exclusive of VAT unless stated</textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('quotationModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetQuoteForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveQuotation()">Save Quotation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Modal -->
+    <div class="modal-overlay" id="invoiceModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 id="invoiceModalTitle">New Invoice</h3>
+                <button class="modal-close" onclick="closeModal('invoiceModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="invEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Customer</label>
+                        <select id="invCustomer" class="input"><option value="">Select Customer</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Invoice Date</label>
+                        <input type="date" id="invDate" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Due Date</label>
+                        <input type="date" id="invDueDate" class="input">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:2;">
+                        <label>Invoice Title / Subject</label>
+                        <input type="text" id="invTitle" class="input" placeholder="e.g. Visa Processing - Mohammed Ali">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="invStatus" class="input">
+                            <option value="Draft">Draft</option>
+                            <option value="Sent">Sent</option>
+                            <option value="Paid">Paid</option>
+                            <option value="Overdue">Overdue</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Linked Quotation</label>
+                        <select id="invLinkedQuote" class="input"><option value="">None</option></select>
+                    </div>
+                </div>
+                <h4 style="margin-top:15px;">Line Items</h4>
+                <table class="data-table" id="invLineItems">
+                    <thead><tr><th style="min-width:250px;">Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th><th></th></tr></thead>
+                    <tbody id="invLineItemsBody"></tbody>
+                </table>
+                <button class="btn btn-secondary btn-sm" onclick="addInvLine()"><i class="fas fa-plus"></i> Add Line</button>
+                <div class="invoice-totals">
+                    <div><span>Subtotal:</span><span id="invSubtotal">AED 0.00</span></div>
+                    <div class="vat-row"><span>VAT:</span>
+                        <select id="invVatRate" class="input input-sm vat-select" onchange="calcInvoiceTotal()">
+                            <option value="0">No VAT (0%)</option>
+                            <option value="0.05">5%</option>
+                        </select>
+                        <span id="invVat">AED 0.00</span>
+                    </div>
+                    <div class="total-line"><span>Total:</span><span id="invTotal">AED 0.00</span></div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="invNotes" class="input" rows="2" placeholder="Payment terms, bank details, etc."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('invoiceModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetInvoiceForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveInvoice()">Save Invoice</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Purchase Order Modal -->
+    <div class="modal-overlay" id="purchaseModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 id="purchaseModalTitle">New Purchase Order</h3>
+                <button class="modal-close" onclick="closeModal('purchaseModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="poEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Supplier</label>
+                        <select id="poSupplier" class="input"><option value="">Select Supplier</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>PO Date</label>
+                        <input type="date" id="poDate" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Expected Delivery</label>
+                        <input type="date" id="poDeliveryDate" class="input">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="poStatus" class="input">
+                            <option value="Draft">Draft</option>
+                            <option value="Sent">Sent</option>
+                            <option value="Confirmed">Confirmed</option>
+                            <option value="Received">Received</option>
+                            <option value="Paid">Paid</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Terms</label>
+                        <select id="poPayTerms" class="input">
+                            <option value="Immediate">Immediate</option>
+                            <option value="Net 15">Net 15</option>
+                            <option value="Net 30">Net 30</option>
+                            <option value="Net 60">Net 60</option>
+                            <option value="On Delivery">On Delivery</option>
+                        </select>
+                    </div>
+                </div>
+                <h4 style="margin-top:15px;">Items / Services</h4>
+                <table class="data-table" id="poLineItems">
+                    <thead><tr><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th><th></th></tr></thead>
+                    <tbody id="poLineItemsBody">
+                        <tr>
+                            <td><input type="text" class="input po-desc" placeholder="Item / service description"></td>
+                            <td><input type="number" class="input po-qty" value="1" min="1" oninput="calcPOTotal()"></td>
+                            <td><input type="number" class="input po-price" value="0" step="0.01" oninput="calcPOTotal()"></td>
+                            <td class="po-line-total">0.00</td>
+                            <td><button class="btn-icon" onclick="removePOLine(this)"><i class="fas fa-trash"></i></button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button class="btn btn-secondary btn-sm" onclick="addPOLine()"><i class="fas fa-plus"></i> Add Line</button>
+                <div class="invoice-totals">
+                    <div><span>Subtotal:</span><span id="poSubtotal">AED 0.00</span></div>
+                    <div class="vat-row"><span>VAT:</span>
+                        <select id="poVatRate" class="input input-sm vat-select" onchange="calcPOTotal()">
+                            <option value="0">No VAT (0%)</option>
+                            <option value="0.05">5%</option>
+                        </select>
+                        <span id="poVat">AED 0.00</span>
+                    </div>
+                    <div class="total-line"><span>Total:</span><span id="poTotal">AED 0.00</span></div>
+                </div>
+                <div class="form-group">
+                    <label>Notes / Delivery Instructions</label>
+                    <textarea id="poNotes" class="input" rows="2" placeholder="Special instructions, delivery address..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('purchaseModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetPOForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="savePurchaseOrder()">Save Purchase Order</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Modal -->
+    <div class="modal-overlay" id="inventoryModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="inventoryModalTitle">Add Inventory Item</h3>
+                <button class="modal-close" onclick="closeModal('inventoryModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="itemEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>SKU</label>
+                        <input type="text" id="itemSku" class="input" placeholder="e.g. STMP-001">
+                    </div>
+                    <div class="form-group">
+                        <label>Item Name</label>
+                        <input type="text" id="itemName" class="input" placeholder="Product name">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category</label>
+                        <input type="text" id="itemCategory" class="input" placeholder="e.g. Stamps, Forms, Supplies">
+                    </div>
+                    <div class="form-group">
+                        <label>Quantity</label>
+                        <input type="number" id="itemQty" class="input" value="0" min="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Unit Cost (AED)</label>
+                        <input type="number" id="itemCost" class="input" step="0.01" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Selling Price (AED)</label>
+                        <input type="number" id="itemPrice" class="input" step="0.01" value="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Reorder Level</label>
+                    <input type="number" id="itemReorder" class="input" value="10" min="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('inventoryModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetInventoryForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveInventoryItem()">Save Item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee Modal -->
+    <div class="modal-overlay" id="employeeModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="employeeModalTitle">Add Employee</h3>
+                <button class="modal-close" onclick="closeModal('employeeModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="empEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="empName" class="input" placeholder="Full name">
+                    </div>
+                    <div class="form-group">
+                        <label>Employee ID</label>
+                        <input type="text" id="empId" class="input" placeholder="EMP-001">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Position</label>
+                        <select id="empPosition" class="input">
+                            <option value="">Select Position</option>
+                            <option value="PRO (Public Relations Officer)">PRO (Public Relations Officer)</option>
+                            <option value="Senior PRO">Senior PRO</option>
+                            <option value="Document Controller">Document Controller</option>
+                            <option value="Typist">Typist</option>
+                            <option value="Office Manager">Office Manager</option>
+                            <option value="Accountant">Accountant</option>
+                            <option value="Admin Assistant">Admin Assistant</option>
+                            <option value="Driver / Runner">Driver / Runner</option>
+                            <option value="Manager">Manager</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Department</label>
+                        <select id="empDept" class="input">
+                            <option value="Operations">Operations</option>
+                            <option value="Administration">Administration</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Management">Management</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Join Date</label>
+                        <input type="date" id="empJoinDate" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Visa Status</label>
+                        <select id="empVisa" class="input">
+                            <option value="Employment">Employment Visa</option>
+                            <option value="Investor">Investor Visa</option>
+                            <option value="Freelance">Freelance Permit</option>
+                            <option value="Golden">Golden Visa</option>
+                        </select>
+                    </div>
+                </div>
+                <h4 style="margin-top:15px;">Salary Breakdown (AED / Month)</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Basic Salary</label>
+                        <input type="number" id="empBasic" class="input" step="0.01" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Housing Allowance</label>
+                        <input type="number" id="empHousing" class="input" step="0.01" value="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Transport Allowance</label>
+                        <input type="number" id="empTransport" class="input" step="0.01" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Other Allowances</label>
+                        <input type="number" id="empOther" class="input" step="0.01" value="0">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('employeeModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetEmployeeForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveEmployee()">Save Employee</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Modal -->
+    <div class="modal-overlay" id="contactModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="contactModalTitle">Add Contact</h3>
+                <button class="modal-close" onclick="closeModal('contactModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="ctEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Contact Name / Company</label>
+                        <input type="text" id="ctName" class="input" placeholder="Name or company">
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="ctType" class="input">
+                            <option value="Customer">Customer</option>
+                            <option value="Supplier">Supplier</option>
+                            <option value="Both">Both</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>TRN</label>
+                        <input type="text" id="ctTrn" class="input" placeholder="Tax Registration Number" maxlength="15">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="ctEmail" class="input" placeholder="email@example.com">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="text" id="ctPhone" class="input" placeholder="+971 XX XXX XXXX">
+                    </div>
+                    <div class="form-group">
+                        <label>City</label>
+                        <select id="ctCity" class="input">
+                            <option value="Dubai">Dubai</option>
+                            <option value="Abu Dhabi">Abu Dhabi</option>
+                            <option value="Sharjah">Sharjah</option>
+                            <option value="Ajman">Ajman</option>
+                            <option value="RAK">Ras Al Khaimah</option>
+                            <option value="Fujairah">Fujairah</option>
+                            <option value="UAQ">Umm Al Quwain</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <h4 style="margin-top:12px;margin-bottom:8px;color:var(--primary);"><i class="fas fa-id-card"></i> License & Document Expiry</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Trade License Expiry</label>
+                        <input type="date" id="ctLicenseExpiry" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Visa/Emirates ID Expiry</label>
+                        <input type="date" id="ctVisaExpiry" class="input">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Immigration Card Expiry</label>
+                        <input type="date" id="ctImmigrationExpiry" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Establishment Card Expiry</label>
+                        <input type="date" id="ctEstabExpiry" class="input">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea id="ctAddress" class="input" rows="2" placeholder="Full address"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('contactModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetContactForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveContact()">Save Contact</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Catalogue Modal -->
+    <div class="modal-overlay" id="serviceModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="serviceModalTitle">Add Service</h3>
+                <button class="modal-close" onclick="closeModal('serviceModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="svcEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Service Code</label>
+                        <input type="text" id="svcCode" class="input" placeholder="e.g. VISA-EMP">
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="svcCategory" class="input">
+                            <option value="Visa Services">Visa Services</option>
+                            <option value="Trade License">Trade License</option>
+                            <option value="Labour & Immigration">Labour & Immigration</option>
+                            <option value="PRO Services">PRO Services</option>
+                            <option value="Emirates ID">Emirates ID</option>
+                            <option value="Medical & Insurance">Medical & Insurance</option>
+                            <option value="Attestation">Attestation</option>
+                            <option value="Typing Services">Typing Services</option>
+                            <option value="Company Formation">Company Formation</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Service Name</label>
+                    <input type="text" id="svcName" class="input" placeholder="e.g. Employment Visa - New Application">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="svcDesc" class="input" rows="2" placeholder="Detailed description of the service"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Government Fee (AED)</label>
+                        <input type="number" id="svcGovtFee" class="input" step="0.01" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Service / Typing Fee (AED)</label>
+                        <input type="number" id="svcServiceFee" class="input" step="0.01" value="0">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('serviceModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetServiceForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveService()">Save Service</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Item Master Modal -->
+    <div class="modal-overlay" id="itemMasterModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="itemMasterModalTitle">Add Item</h3>
+                <button class="modal-close" onclick="closeModal('itemMasterModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="imEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Item Code</label>
+                        <input type="text" id="imCode" class="input" placeholder="e.g. VISA-NEW, CF-LLC">
+                    </div>
+                    <div class="form-group">
+                        <label>Item Name *</label>
+                        <input type="text" id="imName" class="input" placeholder="e.g. Employment Visa - New">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="imCategory" class="input">
+                            <option value="Visa Services">Visa Services</option>
+                            <option value="Emirates ID">Emirates ID</option>
+                            <option value="Company Formation">Company Formation</option>
+                            <option value="Trade License">Trade License</option>
+                            <option value="PRO Services">PRO Services</option>
+                            <option value="Labour & Immigration">Labour & Immigration</option>
+                            <option value="Attestation">Attestation</option>
+                            <option value="Translation">Translation</option>
+                            <option value="Typing Services">Typing Services</option>
+                            <option value="Medical & Insurance">Medical & Insurance</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Default Price (AED)</label>
+                        <input type="number" id="imPrice" class="input" value="0" step="0.01" min="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="imDesc" class="input" placeholder="Brief description for invoice line item">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('itemMasterModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetItemMasterForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveItemMaster()">Save Item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Journal Entry Modal -->
+    <div class="modal-overlay" id="journalModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3>New Journal Entry</h3>
+                <button class="modal-close" onclick="closeModal('journalModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="jeDate" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Reference</label>
+                        <input type="text" id="jeRef" class="input" placeholder="JE-001">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="jeDesc" class="input" placeholder="Description of entry">
+                </div>
+                <table class="data-table" id="jeLines">
+                    <thead><tr><th>Account</th><th>Debit (AED)</th><th>Credit (AED)</th><th></th></tr></thead>
+                    <tbody id="jeLinesBody">
+                        <tr>
+                            <td><select class="input je-account"></select></td>
+                            <td><input type="number" class="input je-debit" step="0.01" value="0" oninput="calcJEBalance()"></td>
+                            <td><input type="number" class="input je-credit" step="0.01" value="0" oninput="calcJEBalance()"></td>
+                            <td><button class="btn-icon" onclick="removeJELine(this)"><i class="fas fa-trash"></i></button></td>
+                        </tr>
+                        <tr>
+                            <td><select class="input je-account"></select></td>
+                            <td><input type="number" class="input je-debit" step="0.01" value="0" oninput="calcJEBalance()"></td>
+                            <td><input type="number" class="input je-credit" step="0.01" value="0" oninput="calcJEBalance()"></td>
+                            <td><button class="btn-icon" onclick="removeJELine(this)"><i class="fas fa-trash"></i></button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button class="btn btn-secondary btn-sm" onclick="addJELine()"><i class="fas fa-plus"></i> Add Line</button>
+                <div class="je-balance">
+                    <span>Debit Total: <strong id="jeDebitTotal">0.00</strong></span>
+                    <span>Credit Total: <strong id="jeCreditTotal">0.00</strong></span>
+                    <span id="jeBalanceStatus" class="balance-ok">Balanced</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('journalModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetJournalForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveJournalEntry()">Save Entry</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expense Modal -->
+    <div class="modal-overlay" id="expenseModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="expenseModalTitle">Record Expense</h3>
+                <button class="modal-close" onclick="closeModal('expenseModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="expEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="expDate" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="expCategory" class="input">
+                            <option value="Government Fees">Government Fees</option>
+                            <option value="Rent">Rent</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Salaries">Salaries</option>
+                            <option value="Office Supplies">Office Supplies</option>
+                            <option value="Transport & Fuel">Transport & Fuel</option>
+                            <option value="Typing Centre Fees">Typing Centre Fees</option>
+                            <option value="Amer / Tas-heel Fees">Amer / Tas-heel Fees</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Insurance">Insurance</option>
+                            <option value="Professional Fees">Professional Fees</option>
+                            <option value="Maintenance">Maintenance</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="expDesc" class="input" placeholder="Expense description">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Amount (AED, excl. VAT)</label>
+                        <input type="number" id="expAmount" class="input" step="0.01" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>VAT Included?</label>
+                        <select id="expVatIncl" class="input">
+                            <option value="yes">Yes (5% VAT)</option>
+                            <option value="no">No VAT</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Supplier</label>
+                    <select id="expSupplier" class="input"><option value="">Select Supplier (optional)</option></select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('expenseModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetExpenseForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveExpense()">Save Expense</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cash Memo Modal -->
+    <div class="modal-overlay" id="cashMemoModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="cashMemoModalTitle">New Cash Memo</h3>
+                <button class="modal-close" onclick="closeModal('cashMemoModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="cmEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="cmDate" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Receipt #</label>
+                        <input type="text" id="cmReceipt" class="input" placeholder="CM-001">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Customer / Source</label>
+                        <input type="text" id="cmCustomer" class="input" placeholder="Customer name or income source">
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Mode</label>
+                        <select id="cmPayMode" class="input">
+                            <option value="Cash">Cash</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Card">Card</option>
+                            <option value="Cheque">Cheque</option>
+                            <option value="Online">Online</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="cmDesc" class="input" placeholder="Service or item description">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Amount (AED)</label>
+                        <input type="number" id="cmAmount" class="input" step="0.01" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>VAT</label>
+                        <select id="cmVatRate" class="input">
+                            <option value="0">No VAT (0%)</option>
+                            <option value="0.05">5%</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('cashMemoModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetCashMemoForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveCashMemo()">Save Cash Memo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Preview Modal -->
+    <div class="modal-overlay" id="printModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 id="printModalTitle">Document Preview</h3>
+                <button class="modal-close" onclick="closeModal('printModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="printPreviewContent"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('printModal')">Close</button>
+                <button class="btn btn-success" onclick="exportPDF()" style="background:#27ae60;"><i class="fas fa-file-pdf"></i> Export PDF</button>
+                <button class="btn btn-success" onclick="sharePDFWhatsApp()" style="background:#25d366;"><i class="fab fa-whatsapp"></i> Share</button>
+                <button class="btn btn-primary" onclick="printDocument()"><i class="fas fa-print"></i> Print</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="bottom-nav" id="bottomNav">
+        <a href="#" class="bottom-nav-item active" data-page="dashboard">
+            <i class="fas fa-chart-line"></i><span>Home</span>
+        </a>
+        <a href="#" class="bottom-nav-item" data-page="quotations">
+            <i class="fas fa-file-lines"></i><span>Quotes</span>
+        </a>
+        <a href="#" class="bottom-nav-item" data-page="sales">
+            <i class="fas fa-file-invoice-dollar"></i><span>Invoices</span>
+        </a>
+        <a href="#" class="bottom-nav-item" data-page="purchases">
+            <i class="fas fa-cart-shopping"></i><span>Purchases</span>
+        </a>
+        <a href="#" class="bottom-nav-item" data-page="more" onclick="toggleMobileMenu(event)">
+            <i class="fas fa-ellipsis"></i><span>More</span>
+        </a>
+    </nav>
+
+    <!-- Mobile "More" Menu Overlay -->
+    <div class="mobile-more-menu" id="mobileMoreMenu">
+        <div class="mobile-more-backdrop" onclick="closeMobileMenu()"></div>
+        <div class="mobile-more-sheet">
+            <div class="mobile-more-handle"></div>
+            <a href="#" class="mobile-more-item" data-page="inventory"><i class="fas fa-boxes-stacked"></i> Inventory</a>
+            <a href="#" class="mobile-more-item" data-page="accounting"><i class="fas fa-calculator"></i> Accounting</a>
+            <a href="#" class="mobile-more-item" data-page="reports"><i class="fas fa-chart-pie"></i> Reports</a>
+            <a href="#" class="mobile-more-item" data-page="hr"><i class="fas fa-users"></i> HR & Payroll</a>
+            <a href="#" class="mobile-more-item" data-page="contacts"><i class="fas fa-address-book"></i> Contacts</a>
+            <a href="#" class="mobile-more-item" data-page="itemmaster"><i class="fas fa-list-check"></i> Item Master</a>
+            <a href="#" class="mobile-more-item" data-page="services"><i class="fas fa-clipboard-list"></i> Service Catalogue</a>
+            <a href="#" class="mobile-more-item" data-page="settings"><i class="fas fa-gear"></i> Settings</a>
+        </div>
+    </div>
+
+    <!-- PWA Install Banner -->
+    <div class="install-banner" id="installBanner" style="display:none;">
+        <div class="install-banner-content">
+            <img src="icons/icon.svg" alt="Danoor" class="install-icon">
+            <div class="install-text">
+                <strong>Install Danoor ERP</strong>
+                <span>Add to home screen for quick access & offline use</span>
+            </div>
+            <button class="btn btn-primary btn-sm" id="installBtn" onclick="installApp()">Install</button>
+            <button class="btn-icon" onclick="dismissInstall()" style="color:#fff;"><i class="fas fa-xmark"></i></button>
+        </div>
+    </div>
+
+    </div><!-- /appShell -->
+
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+
+    <!-- Service Worker Registration -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW registered:', reg.scope))
+                .catch(err => console.log('SW registration failed:', err));
+        });
+    }
+
+    // PWA Install Prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const banner = document.getElementById('installBanner');
+        if (!localStorage.getItem('erp_install_dismissed')) {
+            banner.style.display = 'flex';
+        }
+    });
+
+    function installApp() {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(choice => {
+            if (choice.outcome === 'accepted') {
+                document.getElementById('installBanner').style.display = 'none';
+            }
+            deferredPrompt = null;
+        });
+    }
+
+    function dismissInstall() {
+        document.getElementById('installBanner').style.display = 'none';
+        localStorage.setItem('erp_install_dismissed', '1');
+    }
+
+    // Mobile More Menu
+    function toggleMobileMenu(e) {
+        e.preventDefault();
+        document.getElementById('mobileMoreMenu').classList.toggle('active');
+    }
+    function closeMobileMenu() {
+        document.getElementById('mobileMoreMenu').classList.remove('active');
+    }
+
+    // Bottom nav + more menu page switching
+    document.querySelectorAll('.bottom-nav-item:not([data-page="more"])').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            navigateToPage(item.dataset.page);
+            document.querySelectorAll('.bottom-nav-item').forEach(n => n.classList.remove('active'));
+            item.classList.add('active');
+        });
+    });
+    document.querySelectorAll('.mobile-more-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            navigateToPage(item.dataset.page);
+            closeMobileMenu();
+            document.querySelectorAll('.bottom-nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelector('.bottom-nav-item[data-page="more"]').classList.add('active');
+        });
+    });
+
+    function navigateToPage(page) {
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        const sidebarItem = document.querySelector(`.nav-item[data-page="${page}"]`);
+        if (sidebarItem) sidebarItem.classList.add('active');
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-' + page).classList.add('active');
+        const titleMap = {
+            dashboard: 'Dashboard', quotations: 'Quotations', sales: 'Invoices',
+            purchases: 'Purchase Orders', inventory: 'Inventory', accounting: 'Accounting',
+            reports: 'Reports', hr: 'HR & Payroll', contacts: 'Contacts', services: 'Service Catalogue', settings: 'Settings'
+        };
+        document.getElementById('pageTitle').textContent = titleMap[page] || page;
+        document.getElementById('sidebar').classList.remove('mobile-open');
+        if (page === 'dashboard') updateDashboard();
+        if (page === 'accounting') renderPnL();
+        if (page === 'reports') renderAllReports();
+        window.scrollTo(0, 0);
+    }
+    </script>
+</body>
+</html>

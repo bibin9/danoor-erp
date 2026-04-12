@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" fill="none">
+  <!-- D/S monogram -->
+  <g fill="#ffffff">
+    <!-- Outer D shape -->
+    <path d="M20 10 H100 C155 10 190 50 190 105 C190 160 155 195 100 195 H70 V155 H100 C130 155 150 135 150 105 C150 75 130 55 100 55 H70 V195 H20 V10Z"/>
+    <!-- S crossbar inside -->
+    <path d="M55 95 H120 C128 95 133 100 133 107 C133 114 128 119 120 119 H55 V95Z"/>
+  </g>
+  <!-- Text -->
+  <text x="100" y="225" text-anchor="middle" font-family="Arial, sans-serif" font-weight="800" font-size="28" fill="#ffffff" letter-spacing="3">DANOOR</text>
+  <text x="100" y="248" text-anchor="middle" font-family="Arial, sans-serif" font-weight="600" font-size="14" fill="rgba(255,255,255,0.8)" letter-spacing="1.5">SERVICES</text>
+</svg>

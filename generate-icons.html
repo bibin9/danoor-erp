@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head><title>Generate Icons</title></head>
+<body>
+<canvas id="c" width="512" height="512"></canvas>
+<script>
+const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function drawIcon(size) {
+    canvas.width = size;
+    canvas.height = size;
+    const s = size / 512;
+
+    // Background
+    ctx.fillStyle = '#2b6cb5';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, size, size, size * 0.15);
+    ctx.fill();
+
+    // D shape
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    const cx = size / 2, cy = size * 0.42;
+    const r = size * 0.3;
+    ctx.moveTo(size * 0.2, size * 0.12);
+    ctx.lineTo(size * 0.5, size * 0.12);
+    ctx.bezierCurveTo(size * 0.82, size * 0.12, size * 0.82, size * 0.72, size * 0.5, size * 0.72);
+    ctx.lineTo(size * 0.38, size * 0.72);
+    ctx.lineTo(size * 0.38, size * 0.56);
+    ctx.lineTo(size * 0.5, size * 0.56);
+    ctx.bezierCurveTo(size * 0.68, size * 0.56, size * 0.68, size * 0.28, size * 0.5, size * 0.28);
+    ctx.lineTo(size * 0.38, size * 0.28);
+    ctx.lineTo(size * 0.38, size * 0.72);
+    ctx.lineTo(size * 0.2, size * 0.72);
+    ctx.closePath();
+    ctx.fill();
+
+    // S bar
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(size * 0.28, size * 0.38, size * 0.38, size * 0.08, size * 0.02);
+    ctx.fill();
+
+    // Text
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${size * 0.09}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText('DANOOR', size / 2, size * 0.85);
+    ctx.font = `${size * 0.05}px Arial`;
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText('ERP', size / 2, size * 0.93);
+}
+
+// Generate and auto-download
+sizes.forEach(size => {
+    drawIcon(size);
+    const link = document.createElement('a');
+    link.download = `icon-${size}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+});
+document.body.innerHTML = '<h2 style="font-family:sans-serif;color:green;">Icons generated! Check your downloads folder and move them to uae-erp/icons/</h2>';
+</script>
+</body>
+</html>

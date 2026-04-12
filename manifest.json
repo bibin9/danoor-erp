@@ -1,0 +1,23 @@
+{
+  "name": "Danoor ERP - Document Clearing Services",
+  "short_name": "Danoor ERP",
+  "description": "ERP system for Danoor Services - Document Clearing Services, UAE",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1a4a7a",
+  "theme_color": "#2b6cb5",
+  "scope": "./",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "categories": ["business", "finance", "productivity"],
+  "lang": "en",
+  "dir": "ltr",
+  "shortcuts": [
+    { "name": "New Quotation", "url": "./index.html#quotations", "icons": [{ "src": "icons/icon.svg", "sizes": "any" }] },
+    { "name": "New Invoice", "url": "./index.html#sales", "icons": [{ "src": "icons/icon.svg", "sizes": "any" }] },
+    { "name": "Contacts", "url": "./index.html#contacts", "icons": [{ "src": "icons/icon.svg", "sizes": "any" }] }
+  ]
+}
