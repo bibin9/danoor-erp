@@ -750,8 +750,11 @@ function saveInvoice() {
     });
     if (!lines.length) return showToast('Add at least one line item', 'error');
     const totals = calcInvoiceTotal();
+    const autoNumber = (s.invPrefix || 'INV-') + (s.invNext || 1001);
+    const enteredNumber = (document.getElementById('invNumber').value || '').trim();
+    const invoiceNumber = enteredNumber || autoNumber;
     const invoice = {
-        number: editId ? (appData.invoices.find(i => i.id === editId) || {}).number : (s.invPrefix || 'INV-') + (s.invNext || 1001),
+        number: invoiceNumber,
         date: document.getElementById('invDate').value,
         dueDate: document.getElementById('invDueDate').value,
         customerId, customerName: customer ? customer.name : 'Walk-in Customer',
@@ -763,13 +766,20 @@ function saveInvoice() {
     };
     let promise;
     if (editId) { promise = fsUpdate('invoices', editId, invoice); }
-    else { promise = fsAdd('invoices', invoice).then(() => incrementCounter('invNext')); }
+    else {
+        promise = fsAdd('invoices', invoice).then(() => {
+            // Only auto-increment if number was not manually edited
+            if (invoiceNumber === autoNumber) return incrementCounter('invNext');
+        });
+    }
     promise.then(() => { closeModal('invoiceModal'); resetInvoiceForm(); showToast('Invoice saved!'); })
         .catch(e => showToast('Error: ' + e.message, 'error'));
 }
 
 function resetInvoiceForm() {
+    const s = appData.settings || {};
     document.getElementById('invEditId').value = '';
+    document.getElementById('invNumber').value = (s.invPrefix || 'INV-') + (s.invNext || 1001);
     document.getElementById('invCustomer').value = '';
     document.getElementById('invTitle').value = '';
     document.getElementById('invStatus').value = 'Draft';
@@ -784,6 +794,7 @@ function editInvoice(id) {
     const inv = appData.invoices.find(i => i.id === id);
     if (!inv) return;
     document.getElementById('invEditId').value = inv.id;
+    document.getElementById('invNumber').value = inv.number;
     document.getElementById('invDate').value = inv.date;
     document.getElementById('invDueDate').value = inv.dueDate;
     document.getElementById('invTitle').value = inv.title || '';
