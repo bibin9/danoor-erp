@@ -1,5 +1,5 @@
 // Danoor ERP - Service Worker for PWA Offline Support
-const CACHE_NAME = 'danoor-erp-v23';
+const CACHE_NAME = 'danoor-erp-v24';
 const ASSETS = [
   '/',
   '/index.html',

@@ -1,6 +1,11 @@
 // ==================== DANOOR LLC - Document Clearing ERP (Firebase Edition) ====================
 // Data is stored in Firebase Firestore and synced in real-time
 
+// ---- Save guard: prevents duplicate submissions on double-click ----
+let _saving = false;
+function _beginSave() { if (_saving) return false; _saving = true; return true; }
+function _endSave()   { _saving = false; }
+
 const DEFAULT_VAT_RATE = 0.05;
 function getVatRate(selectId) {
     const el = document.getElementById(selectId);
@@ -161,6 +166,7 @@ function loadSettingsUI() {
 function loadSettings() { loadSettingsUI(); }
 
 function saveSettings() {
+    if (!_beginSave()) return;
     const s = {
         companyName: document.getElementById('settCompanyName').value,
         businessType: document.getElementById('settBusinessType').value,
@@ -185,11 +191,12 @@ function saveSettings() {
         poPrefix: document.getElementById('settPOPrefix').value,
         poNext: parseInt(document.getElementById('settPONext').value) || 1001
     };
-    saveSettingsToFirestore(s).then(() => showToast('Settings saved!')).catch(e => showToast('Error: ' + e.message, 'error'));
+    saveSettingsToFirestore(s).then(() => { _endSave(); showToast('Settings saved!'); }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 // ==================== CONTACTS ====================
 function saveContact() {
+    if (!_beginSave()) return;
     const editId = document.getElementById('ctEditId').value;
     const contact = {
         name: document.getElementById('ctName').value.trim(),
@@ -205,14 +212,15 @@ function saveContact() {
         estabExpiry: document.getElementById('ctEstabExpiry').value || '',
         balance: 0
     };
-    if (!contact.name) return showToast('Please enter a contact name', 'error');
+    if (!contact.name) { _endSave(); return showToast('Please enter a contact name', 'error'); }
 
     const promise = editId ? fsUpdate('contacts', editId, contact) : fsAdd('contacts', contact);
     promise.then(() => {
+        _endSave();
         closeModal('contactModal');
         resetContactForm();
         showToast('Contact saved!');
-    }).catch(e => showToast('Error: ' + e.message, 'error'));
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function resetContactForm() {
@@ -293,6 +301,7 @@ function populateSupplierDropdown(selectId) {
 
 // ==================== SERVICE CATALOGUE ====================
 function saveService() {
+    if (!_beginSave()) return;
     const editId = document.getElementById('svcEditId').value;
     const svc = {
         code: document.getElementById('svcCode').value.trim(),
@@ -302,16 +311,17 @@ function saveService() {
         govtFee: parseFloat(document.getElementById('svcGovtFee').value) || 0,
         serviceFee: parseFloat(document.getElementById('svcServiceFee').value) || 0,
     };
-    if (!svc.name) return showToast('Please enter a service name', 'error');
+    if (!svc.name) { _endSave(); return showToast('Please enter a service name', 'error'); }
 
     const promise = editId ? fsUpdate('services', editId, svc) : fsAdd('services', svc);
     promise.then(() => {
+        _endSave();
         closeModal('serviceModal');
         clearForm(['svcCode','svcName','svcDesc','svcEditId']);
         document.getElementById('svcGovtFee').value = 0;
         document.getElementById('svcServiceFee').value = 0;
         showToast('Service saved!');
-    }).catch(e => showToast('Error: ' + e.message, 'error'));
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function resetServiceForm() {
@@ -364,6 +374,7 @@ function renderServices() {
 
 // ==================== ITEM MASTER ====================
 function saveItemMaster() {
+    if (!_beginSave()) return;
     const editId = document.getElementById('imEditId').value;
     const item = {
         code: document.getElementById('imCode').value.trim(),
@@ -372,13 +383,14 @@ function saveItemMaster() {
         desc: document.getElementById('imDesc').value.trim(),
         defaultPrice: parseFloat(document.getElementById('imPrice').value) || 0,
     };
-    if (!item.name) return showToast('Please enter an item name', 'error');
+    if (!item.name) { _endSave(); return showToast('Please enter an item name', 'error'); }
     const promise = editId ? fsUpdate('itemMaster', editId, item) : fsAdd('itemMaster', item);
     promise.then(() => {
+        _endSave();
         closeModal('itemMasterModal');
         resetItemMasterForm();
         showToast('Item saved!');
-    }).catch(e => showToast('Error: ' + e.message, 'error'));
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function resetItemMasterForm() {
@@ -545,6 +557,7 @@ function calcQuoteTotal() {
 }
 
 function saveQuotation() {
+    if (!_beginSave()) return;
     const editId = document.getElementById('quoteEditId').value;
     const customerId = document.getElementById('quoteCustomer').value;
     const customer = appData.contacts.find(c => c.id === customerId);
@@ -558,7 +571,7 @@ function saveQuotation() {
         const qty = parseFloat(row.querySelector('.qt-qty').value) || 0;
         if (desc && qty > 0) lines.push({ desc, govt, svc, qty, total: (govt + svc) * qty });
     });
-    if (!lines.length) return showToast('Add at least one line item', 'error');
+    if (!lines.length) { _endSave(); return showToast('Add at least one line item', 'error'); }
 
     const totals = calcQuoteTotal();
     const quote = {
@@ -579,10 +592,11 @@ function saveQuotation() {
         promise = fsAdd('quotations', quote).then(() => incrementCounter('quoteNext'));
     }
     promise.then(() => {
+        _endSave();
         closeModal('quotationModal');
         resetQuoteForm();
         showToast('Quotation saved!');
-    }).catch(e => showToast('Error: ' + e.message, 'error'));
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function resetQuoteForm() {
@@ -736,6 +750,7 @@ function calcInvoiceTotal() {
 }
 
 function saveInvoice() {
+    if (!_beginSave()) return;
     const editId = document.getElementById('invEditId').value;
     const customerId = document.getElementById('invCustomer').value;
     const customer = appData.contacts.find(c => c.id === customerId);
@@ -748,7 +763,7 @@ function saveInvoice() {
         const price = parseFloat(row.querySelector('.inv-price').value) || 0;
         if (desc && qty > 0) lines.push({ desc, qty, price, total: qty * price });
     });
-    if (!lines.length) return showToast('Add at least one line item', 'error');
+    if (!lines.length) { _endSave(); return showToast('Add at least one line item', 'error'); }
     const totals = calcInvoiceTotal();
     const autoNumber = (s.invPrefix || 'INV-') + (s.invNext || 1001);
     const enteredNumber = (document.getElementById('invNumber').value || '').trim();
@@ -772,8 +787,8 @@ function saveInvoice() {
             if (invoiceNumber === autoNumber) return incrementCounter('invNext');
         });
     }
-    promise.then(() => { closeModal('invoiceModal'); resetInvoiceForm(); showToast('Invoice saved!'); })
-        .catch(e => showToast('Error: ' + e.message, 'error'));
+    promise.then(() => { _endSave(); closeModal('invoiceModal'); resetInvoiceForm(); showToast('Invoice saved!'); })
+        .catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function resetInvoiceForm() {
@@ -915,6 +930,7 @@ function calcPOTotal() {
 }
 
 function savePurchaseOrder() {
+    if (!_beginSave()) return;
     const editId = document.getElementById('poEditId').value;
     const supplierId = document.getElementById('poSupplier').value;
     const supplier = appData.contacts.find(c => c.id === supplierId);
@@ -926,7 +942,7 @@ function savePurchaseOrder() {
         const price = parseFloat(row.querySelector('.po-price').value) || 0;
         if (desc && qty > 0) lines.push({ desc, qty, price, total: qty * price });
     });
-    if (!lines.length) return showToast('Add at least one line item', 'error');
+    if (!lines.length) { _endSave(); return showToast('Add at least one line item', 'error'); }
     const totals = calcPOTotal();
     const po = {
         number: editId ? (appData.purchases.find(p => p.id === editId) || {}).number : (s.poPrefix || 'PO-') + (s.poNext || 1001),
@@ -941,8 +957,8 @@ function savePurchaseOrder() {
     let promise;
     if (editId) { promise = fsUpdate('purchases', editId, po); }
     else { promise = fsAdd('purchases', po).then(() => incrementCounter('poNext')); }
-    promise.then(() => { closeModal('purchaseModal'); resetPOForm(); showToast('Purchase Order saved!'); })
-        .catch(e => showToast('Error: ' + e.message, 'error'));
+    promise.then(() => { _endSave(); closeModal('purchaseModal'); resetPOForm(); showToast('Purchase Order saved!'); })
+        .catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function resetPOForm() {
@@ -1040,6 +1056,7 @@ function renderPurchases() {
 
 // ==================== INVENTORY ====================
 function saveInventoryItem() {
+    if (!_beginSave()) return;
     const editId = document.getElementById('itemEditId').value;
     const item = {
         sku: document.getElementById('itemSku').value.trim(),
@@ -1050,16 +1067,17 @@ function saveInventoryItem() {
         price: parseFloat(document.getElementById('itemPrice').value) || 0,
         reorder: parseInt(document.getElementById('itemReorder').value) || 10,
     };
-    if (!item.name) return showToast('Please enter an item name', 'error');
+    if (!item.name) { _endSave(); return showToast('Please enter an item name', 'error'); }
     const promise = editId ? fsUpdate('inventory', editId, item) : fsAdd('inventory', item);
     promise.then(() => {
+        _endSave();
         closeModal('inventoryModal');
         clearForm(['itemSku','itemName','itemCategory','itemEditId']);
         document.getElementById('itemQty').value = 0; document.getElementById('itemCost').value = 0;
         document.getElementById('itemPrice').value = 0; document.getElementById('itemReorder').value = 10;
         document.getElementById('inventoryModalTitle').textContent = 'Add Inventory Item';
         showToast('Item saved!');
-    }).catch(e => showToast('Error: ' + e.message, 'error'));
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function resetInventoryForm() {
@@ -1177,9 +1195,10 @@ function calcJEBalance() {
 }
 
 function saveJournalEntry() {
+    if (!_beginSave()) return;
     const { totalDebit, totalCredit } = calcJEBalance();
-    if (Math.abs(totalDebit - totalCredit) > 0.01) return showToast('Journal entry must be balanced!', 'error');
-    if (totalDebit === 0) return showToast('Entry cannot be zero', 'error');
+    if (Math.abs(totalDebit - totalCredit) > 0.01) { _endSave(); return showToast('Journal entry must be balanced!', 'error'); }
+    if (totalDebit === 0) { _endSave(); return showToast('Entry cannot be zero', 'error'); }
     const lines = [];
     document.querySelectorAll('#jeLinesBody tr').forEach(row => {
         const account = row.querySelector('.je-account').value;
@@ -1207,9 +1226,10 @@ function saveJournalEntry() {
         });
         return batch.commit();
     }).then(() => {
+        _endSave();
         closeModal('journalModal');
         showToast('Journal entry saved!');
-    }).catch(e => showToast('Error: ' + e.message, 'error'));
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function resetJournalForm() {
@@ -1240,6 +1260,7 @@ function renderJournal() {
 
 // ==================== EXPENSES ====================
 function saveExpense() {
+    if (!_beginSave()) return;
     const editId = document.getElementById('expEditId').value;
     const expense = {
         date: document.getElementById('expDate').value,
@@ -1249,13 +1270,14 @@ function saveExpense() {
         vatIncl: document.getElementById('expVatIncl').value,
         supplierId: document.getElementById('expSupplier').value
     };
-    if (expense.amount <= 0) return showToast('Please enter a valid amount', 'error');
+    if (expense.amount <= 0) { _endSave(); return showToast('Please enter a valid amount', 'error'); }
     const promise = editId ? fsUpdate('expenses', editId, expense) : fsAdd('expenses', expense);
     promise.then(() => {
+        _endSave();
         closeModal('expenseModal');
         resetExpenseForm();
         showToast('Expense saved!');
-    }).catch(e => showToast('Error: ' + e.message, 'error'));
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function editExpense(id) {
@@ -1287,6 +1309,7 @@ function resetExpenseForm() {
 
 // ==================== CASH MEMO / ADHOC INCOME ====================
 function saveCashMemo() {
+    if (!_beginSave()) return;
     const editId = document.getElementById('cmEditId').value;
     const vatRate = parseFloat(document.getElementById('cmVatRate').value) || 0;
     const amount = parseFloat(document.getElementById('cmAmount').value) || 0;
@@ -1302,15 +1325,16 @@ function saveCashMemo() {
         total: amount + vat,
         payMode: document.getElementById('cmPayMode').value
     };
-    if (memo.amount <= 0) return showToast('Please enter a valid amount', 'error');
-    if (!memo.desc) return showToast('Please enter a description', 'error');
+    if (memo.amount <= 0) { _endSave(); return showToast('Please enter a valid amount', 'error'); }
+    if (!memo.desc) { _endSave(); return showToast('Please enter a description', 'error'); }
 
     const promise = editId ? fsUpdate('cashMemos', editId, memo) : fsAdd('cashMemos', memo);
     promise.then(() => {
+        _endSave();
         closeModal('cashMemoModal');
         resetCashMemoForm();
         showToast('Cash memo saved!');
-    }).catch(e => showToast('Error: ' + e.message, 'error'));
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function editCashMemo(id) {
@@ -1430,6 +1454,7 @@ function renderPnL() {
 
 // ==================== HR & PAYROLL ====================
 function saveEmployee() {
+    if (!_beginSave()) return;
     const editId = document.getElementById('empEditId').value;
     const emp = {
         empId: document.getElementById('empId').value.trim(),
@@ -1444,16 +1469,17 @@ function saveEmployee() {
         other: parseFloat(document.getElementById('empOther').value) || 0,
     };
     emp.totalSalary = emp.basic + emp.housing + emp.transport + emp.other;
-    if (!emp.name) return showToast('Please enter employee name', 'error');
+    if (!emp.name) { _endSave(); return showToast('Please enter employee name', 'error'); }
     const promise = editId ? fsUpdate('employees', editId, emp) : fsAdd('employees', emp);
     promise.then(() => {
+        _endSave();
         closeModal('employeeModal');
         clearForm(['empName','empId','empEditId']);
         document.getElementById('empPosition').value = '';
         ['empBasic','empHousing','empTransport','empOther'].forEach(id => document.getElementById(id).value = 0);
         document.getElementById('employeeModalTitle').textContent = 'Add Employee';
         showToast('Employee saved!');
-    }).catch(e => showToast('Error: ' + e.message, 'error'));
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function resetEmployeeForm() {
