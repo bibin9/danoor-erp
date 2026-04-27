@@ -609,6 +609,7 @@
                 </div>
                 <div class="tab-content" id="tab-expenses">
                     <div class="filter-bar">
+                        <input type="text" id="expenseSearch" class="input" placeholder="Search description / name..." oninput="setPage('expenses',1);renderExpenses()">
                         <select id="expSupplierFilter" class="input" onchange="setPage('expenses',1);renderExpenses()">
                             <option value="">All Suppliers</option>
                         </select>

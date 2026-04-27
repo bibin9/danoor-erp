@@ -1397,6 +1397,7 @@ function renderExpenses() {
     const sortVal = document.getElementById('expenseSort')?.value || 'date-desc';
     const supplierFilter = document.getElementById('expSupplierFilter')?.value || '';
     const categoryFilter = document.getElementById('expCategoryFilter')?.value || '';
+    const search = (document.getElementById('expenseSearch')?.value || '').toLowerCase();
 
     // Populate supplier filter
     const supSelect = document.getElementById('expSupplierFilter');
@@ -1407,6 +1408,7 @@ function renderExpenses() {
         supSelect.value = cv;
     }
 
+    if (search) expenses = expenses.filter(e => (e.desc || '').toLowerCase().includes(search) || (e.category || '').toLowerCase().includes(search));
     if (supplierFilter) expenses = expenses.filter(e => e.supplierId === supplierFilter);
     if (categoryFilter) expenses = expenses.filter(e => e.category === categoryFilter);
     expenses = sortList(expenses, sortVal);
