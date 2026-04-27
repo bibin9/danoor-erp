@@ -106,6 +106,7 @@ function initNavigation() {
             if (page === 'dashboard') updateDashboard();
             if (page === 'accounting') renderPnL();
             if (page === 'reports') renderAllReports();
+            if (page === 'loans') renderLoans();
         });
     });
     document.getElementById('sidebarToggle').addEventListener('click', () => {
@@ -1435,7 +1436,8 @@ function renderPnL() {
     const invoiceRevenue = invoices.reduce((s, i) => s + (i.subtotal||0), 0);
     const cashMemoRevenue = cashMemos.reduce((s, m) => s + (m.amount||0), 0);
     const totalRevenue = invoiceRevenue + cashMemoRevenue;
-    if (document.getElementById('pnlRevenue')) document.getElementById('pnlRevenue').textContent = fmt(totalRevenue);
+    if (document.getElementById('pnlInvRevenue')) document.getElementById('pnlInvRevenue').textContent = fmt(invoiceRevenue);
+    if (document.getElementById('pnlCashMemoRevenue')) document.getElementById('pnlCashMemoRevenue').textContent = fmt(cashMemoRevenue);
     if (document.getElementById('pnlTotalRevenue')) document.getElementById('pnlTotalRevenue').textContent = fmt(totalRevenue);
     const totalCost = purchases.reduce((s, p) => s + (p.subtotal||0), 0);
     const costDiv = document.getElementById('pnlCostLines');
@@ -1450,6 +1452,214 @@ function renderPnL() {
     const net = totalRevenue - totalCost - totalExpenses;
     const netEl = document.getElementById('pnlNet');
     if (netEl) { netEl.textContent = fmt(net); netEl.style.color = net >= 0 ? 'var(--success)' : 'var(--danger)'; }
+    // Outstanding loans memo
+    const loans = (appData.loans || []).filter(l => l.status !== 'Paid');
+    const loanLines = document.getElementById('pnlLoanLines');
+    const totalLoans = loans.reduce((s, l) => s + loanOutstanding(l), 0);
+    if (loanLines) loanLines.innerHTML = loans.length ? loans.map(l => `<div class="pnl-line"><span>${esc(l.lenderName)} (${esc(l.lenderType)})</span><span>${fmt(loanOutstanding(l))}</span></div>`).join('') : '<div class="pnl-line"><span>No outstanding loans</span><span>AED 0.00</span></div>';
+    if (document.getElementById('pnlTotalLoans')) document.getElementById('pnlTotalLoans').textContent = fmt(totalLoans);
+}
+
+// ==================== LOANS & LIABILITIES ====================
+
+function loanRepaid(loan) {
+    return ((loan.repayments || []).reduce((s, r) => s + (r.amount || 0), 0));
+}
+function loanOutstanding(loan) {
+    return Math.max(0, (loan.amount || 0) - loanRepaid(loan));
+}
+function loanStatus(loan) {
+    const outstanding = loanOutstanding(loan);
+    if (outstanding <= 0) return 'Paid';
+    if (loanRepaid(loan) > 0) return 'Partial';
+    return 'Outstanding';
+}
+
+function saveLoan() {
+    if (!_beginSave()) return;
+    const editId = document.getElementById('loanEditId').value;
+    const loan = {
+        lenderName: document.getElementById('loanLenderName').value.trim(),
+        lenderType: document.getElementById('loanLenderType').value,
+        amount: parseFloat(document.getElementById('loanAmount').value) || 0,
+        date: document.getElementById('loanDate').value,
+        dueDate: document.getElementById('loanDueDate').value || '',
+        purpose: document.getElementById('loanPurpose').value.trim(),
+        notes: document.getElementById('loanNotes').value.trim(),
+    };
+    if (!loan.lenderName) { _endSave(); return showToast('Please enter lender name', 'error'); }
+    if (loan.amount <= 0) { _endSave(); return showToast('Please enter a valid amount', 'error'); }
+    if (!loan.date) { _endSave(); return showToast('Please enter the date', 'error'); }
+    if (!editId) loan.repayments = [];
+    loan.status = editId ? loanStatus({ ...loan, repayments: (appData.loans.find(l => l.id === editId) || {}).repayments || [] }) : 'Outstanding';
+
+    const promise = editId ? fsUpdate('loans', editId, loan) : fsAdd('loans', loan);
+    promise.then(() => {
+        _endSave();
+        closeModal('loanModal');
+        resetLoanForm();
+        showToast('Loan saved!');
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
+}
+
+function resetLoanForm() {
+    document.getElementById('loanEditId').value = '';
+    document.getElementById('loanLenderName').value = '';
+    document.getElementById('loanLenderType').value = 'Partner';
+    document.getElementById('loanAmount').value = '';
+    document.getElementById('loanDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('loanDueDate').value = '';
+    document.getElementById('loanPurpose').value = '';
+    document.getElementById('loanNotes').value = '';
+    document.getElementById('loanModalTitle').textContent = 'Add Loan / Liability';
+}
+
+function editLoan(id) {
+    const loan = (appData.loans || []).find(l => l.id === id);
+    if (!loan) return;
+    document.getElementById('loanEditId').value = loan.id;
+    document.getElementById('loanLenderName').value = loan.lenderName || '';
+    document.getElementById('loanLenderType').value = loan.lenderType || 'Partner';
+    document.getElementById('loanAmount').value = loan.amount || '';
+    document.getElementById('loanDate').value = loan.date || '';
+    document.getElementById('loanDueDate').value = loan.dueDate || '';
+    document.getElementById('loanPurpose').value = loan.purpose || '';
+    document.getElementById('loanNotes').value = loan.notes || '';
+    document.getElementById('loanModalTitle').textContent = 'Edit Loan';
+    openModal('loanModal');
+}
+
+function deleteLoan(id) {
+    if (!confirm('Delete this loan record? This cannot be undone.')) return;
+    fsDelete('loans', id).then(() => showToast('Loan deleted'));
+}
+
+function openRepaymentModal(id) {
+    const loan = (appData.loans || []).find(l => l.id === id);
+    if (!loan) return;
+    document.getElementById('repayLoanId').value = id;
+    document.getElementById('repayDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('repayAmount').value = '';
+    document.getElementById('repayNotes').value = '';
+    const repaid = loanRepaid(loan);
+    const outstanding = loanOutstanding(loan);
+    document.getElementById('repayLoanInfo').innerHTML =
+        `<strong>${esc(loan.lenderName)}</strong> (${esc(loan.lenderType)})<br>` +
+        `Principal: <strong>${fmt(loan.amount)}</strong> &nbsp;|&nbsp; ` +
+        `Repaid: <strong style="color:var(--success)">${fmt(repaid)}</strong> &nbsp;|&nbsp; ` +
+        `Outstanding: <strong style="color:var(--warning)">${fmt(outstanding)}</strong>`;
+    // Show repayment history
+    const hist = (loan.repayments || []).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+    const histSection = document.getElementById('repayHistorySection');
+    histSection.innerHTML = hist.length ? `<h4 style="margin-bottom:8px;font-size:13px;color:var(--text-secondary)">Repayment History</h4>
+        <table class="data-table" style="font-size:12px;">
+            <thead><tr><th>Date</th><th>Amount</th><th>Notes</th></tr></thead>
+            <tbody>${hist.map(r => `<tr><td>${r.date}</td><td>${fmt(r.amount)}</td><td>${esc(r.notes||'-')}</td></tr>`).join('')}</tbody>
+        </table>` : '';
+    openModal('repaymentModal');
+}
+
+function saveRepayment() {
+    if (!_beginSave()) return;
+    const loanId = document.getElementById('repayLoanId').value;
+    const date = document.getElementById('repayDate').value;
+    const amount = parseFloat(document.getElementById('repayAmount').value) || 0;
+    const notes = document.getElementById('repayNotes').value.trim();
+    if (!date) { _endSave(); return showToast('Please enter payment date', 'error'); }
+    if (amount <= 0) { _endSave(); return showToast('Please enter a valid amount', 'error'); }
+    const loan = (appData.loans || []).find(l => l.id === loanId);
+    if (!loan) { _endSave(); return; }
+    const outstanding = loanOutstanding(loan);
+    if (amount > outstanding + 0.01) { _endSave(); return showToast('Payment exceeds outstanding balance of ' + fmt(outstanding), 'error'); }
+    const repayments = [...(loan.repayments || []), { id: Date.now().toString(), date, amount, notes }];
+    const newOutstanding = loanOutstanding({ ...loan, repayments });
+    const newStatus = newOutstanding <= 0 ? 'Paid' : repayments.length > 0 ? 'Partial' : 'Outstanding';
+    fsUpdate('loans', loanId, { repayments, status: newStatus }).then(() => {
+        _endSave();
+        closeModal('repaymentModal');
+        showToast(newStatus === 'Paid' ? '✅ Loan fully repaid!' : 'Payment recorded!');
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
+}
+
+function renderLoans() {
+    let loans = [...(appData.loans || [])];
+    const search = (document.getElementById('loanSearch')?.value || '').toLowerCase();
+    const statusFilter = document.getElementById('loanStatusFilter')?.value || '';
+    const sortVal = document.getElementById('loanSort')?.value || 'date-desc';
+    if (search) loans = loans.filter(l => (l.lenderName||'').toLowerCase().includes(search) || (l.purpose||'').toLowerCase().includes(search));
+    if (statusFilter) loans = loans.filter(l => l.status === statusFilter);
+    // Recalculate status live
+    loans = loans.map(l => ({ ...l, _repaid: loanRepaid(l), _outstanding: loanOutstanding(l), _status: loanStatus(l) }));
+    if (sortVal === 'date-asc') loans.sort((a,b) => new Date(a.date) - new Date(b.date));
+    else if (sortVal === 'amount-desc') loans.sort((a,b) => b.amount - a.amount);
+    else if (sortVal === 'outstanding-desc') loans.sort((a,b) => b._outstanding - a._outstanding);
+    else loans.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+    // Summary cards
+    const all = appData.loans || [];
+    const totalBorrowed = all.reduce((s, l) => s + (l.amount || 0), 0);
+    const totalRepaid = all.reduce((s, l) => s + loanRepaid(l), 0);
+    const totalOutstanding = all.reduce((s, l) => s + loanOutstanding(l), 0);
+    const activeCount = all.filter(l => loanStatus(l) !== 'Paid').length;
+    if (document.getElementById('loanTotalBorrowed')) document.getElementById('loanTotalBorrowed').textContent = fmt(totalBorrowed);
+    if (document.getElementById('loanTotalRepaid')) document.getElementById('loanTotalRepaid').textContent = fmt(totalRepaid);
+    if (document.getElementById('loanTotalOutstanding')) document.getElementById('loanTotalOutstanding').textContent = fmt(totalOutstanding);
+    if (document.getElementById('loanActiveCount')) document.getElementById('loanActiveCount').textContent = activeCount;
+
+    const tbody = document.getElementById('loansTableBody');
+    if (!tbody) return;
+    if (!loans.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No loans recorded</td></tr>'; renderPagination('loans', 0, 0, 'renderLoans'); return; }
+    const pg = paginate(loans, 'loans');
+    const statusColor = { Outstanding: 'danger', Partial: 'warning', Paid: 'Paid' };
+    tbody.innerHTML = pg.items.map(l => {
+        const st = l._status;
+        return `<tr>
+            <td>${l.date}</td>
+            <td><strong>${esc(l.lenderName)}</strong></td>
+            <td><span class="status-badge" style="background:#e8f0ff;color:#2b6cb5">${esc(l.lenderType)}</span></td>
+            <td>${esc(l.purpose||'-')}</td>
+            <td>${fmt(l.amount)}</td>
+            <td style="color:var(--success)">${fmt(l._repaid)}</td>
+            <td style="color:${l._outstanding > 0 ? 'var(--warning)' : 'var(--success)'}"><strong>${fmt(l._outstanding)}</strong></td>
+            <td>${l.dueDate || '-'}</td>
+            <td><span class="status-badge status-${st === 'Paid' ? 'Paid' : st === 'Partial' ? 'Sent' : 'Draft'}">${st}</span></td>
+            <td>
+                ${st !== 'Paid' ? `<button class="btn btn-sm btn-primary" onclick="openRepaymentModal('${l.id}')" title="Record Payment"><i class="fas fa-money-bill"></i> Pay</button>` : ''}
+                <button class="btn-icon" onclick="editLoan('${l.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                <button class="btn-icon" onclick="deleteLoan('${l.id}')" title="Delete"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>`;
+    }).join('');
+    renderPagination('loans', pg.totalPages, pg.total, 'renderLoans');
+}
+
+function renderLoansReport() {
+    const loans = appData.loans || [];
+    const totalBorrowed = loans.reduce((s, l) => s + (l.amount || 0), 0);
+    const totalRepaid = loans.reduce((s, l) => s + loanRepaid(l), 0);
+    const totalOutstanding = loans.reduce((s, l) => s + loanOutstanding(l), 0);
+    const activeCount = loans.filter(l => loanStatus(l) !== 'Paid').length;
+    if (document.getElementById('rptLoanBorrowed')) document.getElementById('rptLoanBorrowed').textContent = fmt(totalBorrowed);
+    if (document.getElementById('rptLoanRepaid')) document.getElementById('rptLoanRepaid').textContent = fmt(totalRepaid);
+    if (document.getElementById('rptLoanOutstanding')) document.getElementById('rptLoanOutstanding').textContent = fmt(totalOutstanding);
+    if (document.getElementById('rptLoanCount')) document.getElementById('rptLoanCount').textContent = activeCount;
+
+    const tbody = document.getElementById('rptLoansBody');
+    if (tbody) {
+        tbody.innerHTML = loans.length ? [...loans].sort((a,b) => new Date(b.date) - new Date(a.date)).map(l => {
+            const repaid = loanRepaid(l); const outstanding = loanOutstanding(l); const st = loanStatus(l);
+            return `<tr><td>${l.date}</td><td><strong>${esc(l.lenderName)}</strong></td><td>${esc(l.lenderType)}</td><td>${fmt(l.amount)}</td><td style="color:var(--success)">${fmt(repaid)}</td><td style="color:${outstanding > 0 ? 'var(--warning)' : 'var(--success)'}"><strong>${fmt(outstanding)}</strong></td><td><span class="status-badge status-${st === 'Paid' ? 'Paid' : st === 'Partial' ? 'Sent' : 'Draft'}">${st}</span></td></tr>`;
+        }).join('') : '<tr><td colspan="7" class="empty-state">No loans recorded</td></tr>';
+    }
+
+    // Repayment history table
+    const rBody = document.getElementById('rptRepaymentsBody');
+    if (rBody) {
+        const rows = [];
+        loans.forEach(l => { (l.repayments || []).forEach(r => rows.push({ ...r, lenderName: l.lenderName })); });
+        rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+        rBody.innerHTML = rows.length ? rows.map(r => `<tr><td>${r.date}</td><td><strong>${esc(r.lenderName)}</strong></td><td>${fmt(r.amount)}</td><td>${esc(r.notes||'-')}</td></tr>`).join('') : '<tr><td colspan="4" class="empty-state">No repayments recorded</td></tr>';
+    }
 }
 
 // ==================== HR & PAYROLL ====================
@@ -2171,6 +2381,7 @@ function renderAllReports() {
     renderRevenueReport();
     renderVatReport();
     renderAgingReport();
+    renderLoansReport();
 }
 
 // Chart instance storage
@@ -2179,10 +2390,13 @@ let _rptPnlChart, _rptExpChart, _rptRevChart, _rptAgingChart;
 function renderReportPnL() {
     const period = document.getElementById('rptPnlPeriod')?.value || 'year';
     const invoices = filterByDate((appData.invoices || []).filter(i => i.status === 'Paid'), period);
+    const cashMemos = filterByDate(appData.cashMemos || [], period);
     const expenses = filterByDate(appData.expenses || [], period);
     const purchases = filterByDate((appData.purchases || []).filter(p => p.status === 'Paid'), period);
 
-    const totalRevenue = invoices.reduce((s, i) => s + (i.subtotal || 0), 0);
+    const invoiceRevenue = invoices.reduce((s, i) => s + (i.subtotal || 0), 0);
+    const cashMemoRevenue = cashMemos.reduce((s, m) => s + (m.amount || 0), 0);
+    const totalRevenue = invoiceRevenue + cashMemoRevenue;
     const totalCost = purchases.reduce((s, p) => s + (p.subtotal || 0), 0);
     const grossProfit = totalRevenue - totalCost;
 
@@ -2203,7 +2417,8 @@ function renderReportPnL() {
     const detailEl = document.getElementById('rptPnlDetail');
     if (detailEl) {
         let html = '<div class="pnl-section"><h3>Revenue</h3>';
-        html += '<div class="pnl-line"><span>Service Revenue</span><span>' + fmt(totalRevenue) + '</span></div>';
+        html += '<div class="pnl-line"><span>Invoice Revenue (Paid)</span><span>' + fmt(invoiceRevenue) + '</span></div>';
+        html += '<div class="pnl-line"><span>Cash Memo / Ad-hoc Income</span><span>' + fmt(cashMemoRevenue) + '</span></div>';
         html += '<div class="pnl-total"><span>Total Revenue</span><span>' + fmt(totalRevenue) + '</span></div></div>';
         html += '<div class="pnl-section"><h3>Cost of Services</h3>';
         if (purchases.length) purchases.forEach(p => { html += '<div class="pnl-line"><span>' + esc(p.supplierName) + ' (' + esc(p.number) + ')</span><span>' + fmt(p.subtotal) + '</span></div>'; });
@@ -2254,15 +2469,19 @@ function renderReportPnL() {
 function renderRevenueReport() {
     const months = parseInt(document.getElementById('rptRevPeriod')?.value || '12');
     const invoices = (appData.invoices || []).filter(i => i.status === 'Paid');
+    const allCashMemos = appData.cashMemos || [];
     const now = new Date();
-    const labels = [], revenueData = [], expenseData = [];
+    const labels = [], revenueData = [], cashMemoData = [], expenseData = [];
     const allExpenses = appData.expenses || [];
 
     for (let i = months - 1; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
         labels.push(d.toLocaleDateString('en-AE', { month: 'short', year: '2-digit' }));
-        revenueData.push(invoices.filter(inv => { const id = new Date(inv.date); return id >= d && id <= end; }).reduce((s, inv) => s + (inv.total || 0), 0));
+        const invRev = invoices.filter(inv => { const id = new Date(inv.date); return id >= d && id <= end; }).reduce((s, inv) => s + (inv.total || 0), 0);
+        const cmRev = allCashMemos.filter(m => { const md = new Date(m.date); return md >= d && md <= end; }).reduce((s, m) => s + (m.amount || 0), 0);
+        revenueData.push(invRev + cmRev);
+        cashMemoData.push(cmRev);
         expenseData.push(allExpenses.filter(e => { const ed = new Date(e.date); return ed >= d && ed <= end; }).reduce((s, e) => s + (e.amount || 0), 0));
     }
 
@@ -2274,7 +2493,8 @@ function renderRevenueReport() {
             data: {
                 labels,
                 datasets: [
-                    { label: 'Revenue', data: revenueData, borderColor: '#2b6cb5', backgroundColor: 'rgba(43,108,181,0.1)', fill: true, tension: 0.3, borderWidth: 2, pointRadius: 4 },
+                    { label: 'Total Revenue', data: revenueData, borderColor: '#2b6cb5', backgroundColor: 'rgba(43,108,181,0.1)', fill: true, tension: 0.3, borderWidth: 2, pointRadius: 4 },
+                    { label: 'Cash Memo Income', data: cashMemoData, borderColor: '#27ae60', backgroundColor: 'rgba(39,174,96,0.08)', fill: false, tension: 0.3, borderWidth: 2, pointRadius: 3, borderDash: [5,3] },
                     { label: 'Expenses', data: expenseData, borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)', fill: true, tension: 0.3, borderWidth: 2, pointRadius: 4 }
                 ]
             },
@@ -2282,15 +2502,23 @@ function renderRevenueReport() {
         });
     }
 
-    // Revenue by customer table
+    // Revenue by customer table (invoices + cash memos)
     const custMap = {};
     invoices.forEach(inv => {
         const name = inv.customerName || 'Walk-in';
-        if (!custMap[name]) custMap[name] = { count: 0, subtotal: 0, vat: 0, total: 0 };
+        if (!custMap[name]) custMap[name] = { count: 0, subtotal: 0, vat: 0, total: 0, type: 'Invoice' };
         custMap[name].count++;
         custMap[name].subtotal += inv.subtotal || 0;
         custMap[name].vat += inv.vat || 0;
         custMap[name].total += inv.total || 0;
+    });
+    allCashMemos.forEach(m => {
+        const name = (m.customer || 'Walk-in') + ' (Cash Memo)';
+        if (!custMap[name]) custMap[name] = { count: 0, subtotal: 0, vat: 0, total: 0, type: 'Cash Memo' };
+        custMap[name].count++;
+        custMap[name].subtotal += m.amount || 0;
+        custMap[name].vat += m.vat || 0;
+        custMap[name].total += m.total || (m.amount || 0);
     });
     const tbody = document.getElementById('rptRevCustBody');
     if (tbody) {
@@ -2389,15 +2617,19 @@ function exportReportCSV() {
         filename = 'profit-and-loss';
         const period = document.getElementById('rptPnlPeriod')?.value || 'year';
         const invoices = filterByDate((appData.invoices || []).filter(i => i.status === 'Paid'), period);
+        const cashMemos = filterByDate(appData.cashMemos || [], period);
         const expenses = filterByDate(appData.expenses || [], period);
         const purchases = filterByDate((appData.purchases || []).filter(p => p.status === 'Paid'), period);
-        const totalRevenue = invoices.reduce((s, i) => s + (i.subtotal || 0), 0);
+        const invoiceRevenue = invoices.reduce((s, i) => s + (i.subtotal || 0), 0);
+        const cashMemoRevenue = cashMemos.reduce((s, m) => s + (m.amount || 0), 0);
+        const totalRevenue = invoiceRevenue + cashMemoRevenue;
         const totalCost = purchases.reduce((s, p) => s + (p.subtotal || 0), 0);
         const expByCategory = {};
         expenses.forEach(e => { expByCategory[e.category] = (expByCategory[e.category] || 0) + (e.amount || 0); });
         const totalExpenses = Object.values(expByCategory).reduce((s, v) => s + v, 0);
         csv = 'Category,Amount (AED)\n';
-        csv += 'Service Revenue,' + totalRevenue.toFixed(2) + '\n';
+        csv += 'Invoice Revenue (Paid),' + invoiceRevenue.toFixed(2) + '\n';
+        csv += 'Cash Memo / Ad-hoc Income,' + cashMemoRevenue.toFixed(2) + '\n';
         csv += 'Total Revenue,' + totalRevenue.toFixed(2) + '\n';
         csv += 'Cost of Services,' + totalCost.toFixed(2) + '\n';
         csv += 'Gross Profit,' + (totalRevenue - totalCost).toFixed(2) + '\n';
@@ -2432,6 +2664,14 @@ function exportReportCSV() {
             const due = new Date(inv.dueDate || inv.date);
             const days = Math.max(0, Math.floor((now - due) / (1000 * 60 * 60 * 24)));
             csv += inv.number + ',"' + (inv.customerName||'') + '",' + inv.date + ',' + (inv.dueDate||'-') + ',' + (inv.total||0).toFixed(2) + ',' + days + ',' + inv.status + '\n';
+        });
+    } else if (tabId === 'tab-rptLoans') {
+        filename = 'loans-liabilities';
+        csv = 'Date,Lender,Type,Purpose,Principal,Repaid,Outstanding,Due Date,Status\n';
+        (appData.loans || []).forEach(l => {
+            const repaid = loanRepaid(l);
+            const outstanding = loanOutstanding(l);
+            csv += l.date + ',"' + (l.lenderName||'') + '",' + (l.lenderType||'') + ',"' + (l.purpose||'') + '",' + (l.amount||0).toFixed(2) + ',' + repaid.toFixed(2) + ',' + outstanding.toFixed(2) + ',' + (l.dueDate||'-') + ',' + l.status + '\n';
         });
     }
 

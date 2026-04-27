@@ -138,6 +138,9 @@
             <a href="#" class="nav-item" data-page="hr">
                 <i class="fas fa-users"></i><span>HR & Payroll</span>
             </a>
+            <a href="#" class="nav-item" data-page="loans">
+                <i class="fas fa-hand-holding-dollar"></i><span>Loans & Liabilities</span>
+            </a>
             <div class="nav-section-label">Master Data</div>
             <a href="#" class="nav-item" data-page="contacts">
                 <i class="fas fa-address-book"></i><span>Contacts</span>
@@ -649,7 +652,8 @@
                     <div class="pnl-report" id="pnlReport">
                         <div class="pnl-section">
                             <h3>Revenue</h3>
-                            <div class="pnl-line"><span>Service Revenue</span><span id="pnlRevenue">AED 0.00</span></div>
+                            <div class="pnl-line"><span>Invoice Revenue (Paid)</span><span id="pnlInvRevenue">AED 0.00</span></div>
+                            <div class="pnl-line"><span>Cash Memo / Ad-hoc Income</span><span id="pnlCashMemoRevenue">AED 0.00</span></div>
                             <div class="pnl-total"><span>Total Revenue</span><span id="pnlTotalRevenue">AED 0.00</span></div>
                         </div>
                         <div class="pnl-section">
@@ -667,6 +671,11 @@
                         </div>
                         <div class="pnl-section pnl-net">
                             <div class="pnl-total highlight"><span>Net Profit / (Loss)</span><span id="pnlNet">AED 0.00</span></div>
+                        </div>
+                        <div class="pnl-section" id="pnlLoansSection">
+                            <h3 style="color:var(--warning)"><i class="fas fa-hand-holding-dollar"></i> Outstanding Loans / Liabilities</h3>
+                            <div id="pnlLoanLines"><div class="pnl-line"><span>No outstanding loans</span><span>AED 0.00</span></div></div>
+                            <div class="pnl-total" style="color:var(--warning)"><span>Total Outstanding</span><span id="pnlTotalLoans">AED 0.00</span></div>
                         </div>
                     </div>
                 </div>
@@ -916,6 +925,7 @@
                     <button class="tab" data-tab="rptRevenue">Revenue Analysis</button>
                     <button class="tab" data-tab="rptVat">VAT Report</button>
                     <button class="tab" data-tab="rptAging">Receivables Aging</button>
+                    <button class="tab" data-tab="rptLoans">Loans & Liabilities</button>
                 </div>
 
                 <!-- P&L Report with Chart -->
@@ -1025,6 +1035,86 @@
                             <tbody id="rptAgingBody"></tbody>
                         </table>
                     </div>
+                </div>
+
+                <!-- Loans & Liabilities Report -->
+                <div class="tab-content" id="tab-rptLoans">
+                    <div class="card report-summary">
+                        <div class="report-kpi-row">
+                            <div class="report-kpi"><div class="report-kpi-label">Total Borrowed</div><div class="report-kpi-value" id="rptLoanBorrowed">AED 0.00</div></div>
+                            <div class="report-kpi"><div class="report-kpi-label">Total Repaid</div><div class="report-kpi-value" id="rptLoanRepaid">AED 0.00</div></div>
+                            <div class="report-kpi highlight"><div class="report-kpi-label">Outstanding Balance</div><div class="report-kpi-value" id="rptLoanOutstanding">AED 0.00</div></div>
+                            <div class="report-kpi"><div class="report-kpi-label">Active Loans</div><div class="report-kpi-value" id="rptLoanCount">0</div></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h4>Loan Summary</h4>
+                        <table class="data-table">
+                            <thead><tr><th>Date</th><th>Lender</th><th>Type</th><th>Principal</th><th>Repaid</th><th>Outstanding</th><th>Status</th></tr></thead>
+                            <tbody id="rptLoansBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h4>Repayment History</h4>
+                        <table class="data-table">
+                            <thead><tr><th>Date</th><th>Lender</th><th>Amount Paid</th><th>Notes</th></tr></thead>
+                            <tbody id="rptRepaymentsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== LOANS & LIABILITIES ==================== -->
+            <section class="page" id="page-loans">
+                <div class="page-header">
+                    <h2>Loans & Liabilities</h2>
+                    <button class="btn btn-primary" onclick="resetLoanForm();openModal('loanModal')">
+                        <i class="fas fa-plus"></i> Add Loan / Liability
+                    </button>
+                </div>
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-icon" style="background:var(--primary)"><i class="fas fa-arrow-down"></i></div>
+                        <div class="summary-info"><div class="summary-label">Total Borrowed</div><div class="summary-value" id="loanTotalBorrowed">AED 0.00</div></div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon" style="background:var(--success)"><i class="fas fa-arrow-up"></i></div>
+                        <div class="summary-info"><div class="summary-label">Total Repaid</div><div class="summary-value" id="loanTotalRepaid">AED 0.00</div></div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon" style="background:var(--warning)"><i class="fas fa-hand-holding-dollar"></i></div>
+                        <div class="summary-info"><div class="summary-label">Outstanding Balance</div><div class="summary-value" id="loanTotalOutstanding">AED 0.00</div></div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon" style="background:var(--danger)"><i class="fas fa-exclamation-circle"></i></div>
+                        <div class="summary-info"><div class="summary-label">Active Loans</div><div class="summary-value" id="loanActiveCount">0</div></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="filter-bar">
+                        <input type="text" class="input" id="loanSearch" placeholder="Search lender..." oninput="renderLoans()">
+                        <select class="input" id="loanStatusFilter" onchange="renderLoans()">
+                            <option value="">All Status</option>
+                            <option value="Outstanding">Outstanding</option>
+                            <option value="Partial">Partial</option>
+                            <option value="Paid">Paid</option>
+                        </select>
+                        <select class="input" id="loanSort" onchange="renderLoans()">
+                            <option value="date-desc">Newest First</option>
+                            <option value="date-asc">Oldest First</option>
+                            <option value="amount-desc">Amount ↓</option>
+                            <option value="outstanding-desc">Outstanding ↓</option>
+                        </select>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Date</th><th>Lender / Partner</th><th>Type</th><th>Purpose</th><th>Principal</th><th>Repaid</th><th>Outstanding</th><th>Due Date</th><th>Status</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="loansTableBody">
+                            <tr><td colspan="10" class="empty-state">No loans recorded</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination-bar" id="loansPagination"></div>
                 </div>
             </section>
 
@@ -1759,6 +1849,98 @@
                 <button class="btn btn-secondary" onclick="closeModal('itemMasterModal')">Cancel</button>
                 <button class="btn btn-outline" onclick="resetItemMasterForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
                 <button class="btn btn-primary" onclick="saveItemMaster()">Save Item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loan Modal -->
+    <div class="modal-overlay" id="loanModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="loanModalTitle">Add Loan / Liability</h3>
+                <button class="modal-close" onclick="closeModal('loanModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="loanEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Lender / Partner Name *</label>
+                        <input type="text" id="loanLenderName" class="input" placeholder="e.g. Ahmed Al Maktoum">
+                    </div>
+                    <div class="form-group">
+                        <label>Lender Type *</label>
+                        <select id="loanLenderType" class="input">
+                            <option value="Partner">Partner</option>
+                            <option value="Director">Director</option>
+                            <option value="Bank">Bank / Financial Institution</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Amount Received (AED) *</label>
+                        <input type="number" id="loanAmount" class="input" placeholder="0.00" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Date Received *</label>
+                        <input type="date" id="loanDate" class="input">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Due / Expected Repayment Date</label>
+                        <input type="date" id="loanDueDate" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Purpose</label>
+                        <input type="text" id="loanPurpose" class="input" placeholder="e.g. Working capital, Equipment">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="loanNotes" class="input" rows="2" placeholder="Any additional notes..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('loanModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetLoanForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveLoan()">Save Loan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Repayment Modal -->
+    <div class="modal-overlay" id="repaymentModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Record Repayment</h3>
+                <button class="modal-close" onclick="closeModal('repaymentModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="repayLoanId">
+                <div class="card" style="background:var(--bg-secondary);padding:12px;margin-bottom:16px;border-radius:8px;">
+                    <div id="repayLoanInfo" style="font-size:14px;line-height:1.8;"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Payment Date *</label>
+                        <input type="date" id="repayDate" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Amount Paid (AED) *</label>
+                        <input type="number" id="repayAmount" class="input" placeholder="0.00" step="0.01" min="0.01">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <input type="text" id="repayNotes" class="input" placeholder="e.g. Bank transfer, cheque no...">
+                </div>
+                <div id="repayHistorySection" style="margin-top:12px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('repaymentModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveRepayment()"><i class="fas fa-check"></i> Record Payment</button>
             </div>
         </div>
     </div>

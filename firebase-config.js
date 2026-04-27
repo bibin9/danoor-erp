@@ -162,6 +162,7 @@ const appData = {
     payrollRuns: [],
     cashMemos: [],
     itemMaster: [],
+    loans: [],
     coa: []
 };
 
@@ -239,6 +240,7 @@ function initFirestoreListeners() {
         { name: 'payrollRuns', key: 'payrollRuns', render: renderPayroll },
         { name: 'cashMemos', key: 'cashMemos', render: renderCashMemos },
         { name: 'itemMaster', key: 'itemMaster', render: renderItemMaster },
+        { name: 'loans', key: 'loans', render: renderLoans },
     ];
 
     collections.forEach(col => {
