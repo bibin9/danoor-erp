@@ -812,6 +812,92 @@ function saveInvoicePayment() {
     }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
+// ---- Bulk invoice selection & settle ----
+function updateInvBulkBar() {
+    const checked = document.querySelectorAll('.inv-select-cb:checked');
+    const bar = document.getElementById('invBulkBar');
+    const allCb = document.getElementById('invSelectAll');
+    const allEnabled = document.querySelectorAll('.inv-select-cb:not([disabled])');
+    if (!bar) return;
+    if (checked.length > 0) {
+        bar.style.display = 'flex';
+        const totalOutstanding = [...checked].reduce((s, cb) => {
+            const inv = (appData.invoices || []).find(i => i.id === cb.dataset.id);
+            return s + (inv ? invOutstanding(inv) : 0);
+        }, 0);
+        document.getElementById('invBulkCount').textContent = `${checked.length} invoice${checked.length > 1 ? 's' : ''} selected — Total Outstanding: ${fmt(totalOutstanding)}`;
+    } else {
+        bar.style.display = 'none';
+    }
+    if (allCb && allEnabled.length > 0) {
+        allCb.indeterminate = checked.length > 0 && checked.length < allEnabled.length;
+        allCb.checked = allEnabled.length > 0 && checked.length === allEnabled.length;
+    }
+}
+
+function toggleAllInvoices(masterCb) {
+    document.querySelectorAll('.inv-select-cb:not([disabled])').forEach(cb => { cb.checked = masterCb.checked; });
+    updateInvBulkBar();
+}
+
+function clearInvoiceSelection() {
+    document.querySelectorAll('.inv-select-cb').forEach(cb => { cb.checked = false; });
+    const allCb = document.getElementById('invSelectAll');
+    if (allCb) { allCb.checked = false; allCb.indeterminate = false; }
+    updateInvBulkBar();
+}
+
+function bulkSettleInvoices() {
+    const checked = document.querySelectorAll('.inv-select-cb:checked');
+    if (!checked.length) return;
+    const ids = [...checked].map(cb => cb.dataset.id);
+    const invoices = ids.map(id => (appData.invoices || []).find(i => i.id === id)).filter(Boolean);
+    const totalOutstanding = invoices.reduce((s, inv) => s + invOutstanding(inv), 0);
+    document.getElementById('bulkPayDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('bulkPayMethod').value = 'Cash';
+    document.getElementById('bulkPayNotes').value = '';
+    document.getElementById('bulkSettleSummary').innerHTML =
+        `Settling <strong>${invoices.length} invoice${invoices.length > 1 ? 's' : ''}</strong> — ` +
+        `Total amount: <strong style="color:var(--warning)">${fmt(totalOutstanding)}</strong>`;
+    document.getElementById('bulkSettleList').innerHTML =
+        `<table class="data-table" style="font-size:12px;">
+            <thead><tr><th>Invoice</th><th>Customer</th><th>Total</th><th>Outstanding</th></tr></thead>
+            <tbody>${invoices.map(inv => `<tr><td><strong>${esc(inv.number)}</strong></td><td>${esc(inv.customerName)}</td><td>${fmt(inv.total)}</td><td style="color:var(--warning)"><strong>${fmt(invOutstanding(inv))}</strong></td></tr>`).join('')}</tbody>
+        </table>`;
+    // store IDs for confirm step
+    document.getElementById('bulkSettleModal').dataset.ids = JSON.stringify(ids);
+    openModal('bulkSettleModal');
+}
+
+function confirmBulkSettle() {
+    if (!_beginSave()) return;
+    const date = document.getElementById('bulkPayDate').value;
+    const method = document.getElementById('bulkPayMethod').value;
+    const notes = document.getElementById('bulkPayNotes').value.trim();
+    if (!date) { _endSave(); return showToast('Please enter payment date', 'error'); }
+    const ids = JSON.parse(document.getElementById('bulkSettleModal').dataset.ids || '[]');
+    const invoices = ids.map(id => (appData.invoices || []).find(i => i.id === id)).filter(Boolean);
+    if (!invoices.length) { _endSave(); return; }
+    let done = 0;
+    const total = invoices.length;
+    let hasError = false;
+    invoices.forEach(inv => {
+        const outstanding = invOutstanding(inv);
+        if (outstanding <= 0) { done++; if (done === total && !hasError) { _endSave(); closeModal('bulkSettleModal'); clearInvoiceSelection(); showToast(`${total} invoice${total > 1 ? 's' : ''} marked as settled!`); } return; }
+        const payments = [...(inv.payments || []), { id: Date.now().toString() + Math.random(), date, amount: outstanding, method, notes }];
+        const newPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
+        fsUpdate('invoices', inv.id, { payments, status: 'Paid', paidAmount: newPaid }).then(() => {
+            done++;
+            if (done === total && !hasError) {
+                _endSave();
+                closeModal('bulkSettleModal');
+                clearInvoiceSelection();
+                showToast(`✅ ${total} invoice${total > 1 ? 's' : ''} marked as settled!`);
+            }
+        }).catch(e => { hasError = true; _endSave(); showToast('Error: ' + e.message, 'error'); });
+    });
+}
+
 function saveInvoice() {
     if (!_beginSave()) return;
     const editId = document.getElementById('invEditId').value;
@@ -930,7 +1016,7 @@ function renderInvoices() {
     filtered = sortList(filtered, sortVal);
     const tbody = document.getElementById('invoicesTableBody');
     if (!tbody) return;
-    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No invoices found</td></tr>'; renderPagination('invoices', 0, 0, 'renderInvoices'); }
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No invoices found</td></tr>'; renderPagination('invoices', 0, 0, 'renderInvoices'); }
     else {
         const pg = paginate(filtered, 'invoices');
         tbody.innerHTML = pg.items.map(inv => {
@@ -938,10 +1024,12 @@ function renderInvoices() {
             const outstanding = invOutstanding(inv);
             const st = invEffectiveStatus(inv);
             const stColor = st === 'Paid' ? 'Paid' : st === 'Partial' ? 'Sent' : st === 'Overdue' ? 'Overdue' : 'Draft';
+            const canSelect = outstanding > 0;
             return `<tr>
+                <td><input type="checkbox" class="inv-select-cb" data-id="${inv.id}" ${!canSelect ? 'disabled style="opacity:0.3"' : ''} onchange="updateInvBulkBar()"></td>
                 <td><strong>${esc(inv.number)}</strong></td><td>${inv.date||''}</td>
                 <td>${esc(inv.customerName)}</td>
-                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(inv.title || '-')}</td>
+                <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(inv.title || '-')}</td>
                 <td><strong>${fmt(inv.total)}</strong></td>
                 <td style="color:var(--success)">${paid > 0 ? fmt(paid) : '-'}</td>
                 <td style="color:${outstanding > 0 ? 'var(--warning)' : 'var(--success)'}"><strong>${outstanding > 0 ? fmt(outstanding) : '✓ Settled'}</strong></td>
@@ -955,6 +1043,7 @@ function renderInvoices() {
         }).join('');
         renderPagination('invoices', pg.totalPages, pg.total, 'renderInvoices');
     }
+    updateInvBulkBar();
     // VAT summary
     const paidInv = invoices.filter(i => i.status === 'Paid' || i.status === 'Partial');
     const outputVat = paidInv.reduce((s, i) => s + (i.vat || 0), 0);

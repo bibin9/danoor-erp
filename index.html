@@ -405,8 +405,20 @@
                 </div>
                 <div class="table-responsive">
                     <table class="data-table">
+                        <!-- Bulk action bar (hidden until rows selected) -->
+                        <div id="invBulkBar" style="display:none;align-items:center;gap:12px;padding:10px 14px;background:var(--primary);color:#fff;border-radius:8px;margin-bottom:8px;flex-wrap:wrap;">
+                            <span id="invBulkCount" style="font-weight:600;"></span>
+                            <span style="flex:1"></span>
+                            <button class="btn" style="background:#fff;color:var(--primary);font-weight:600;" onclick="bulkSettleInvoices()">
+                                <i class="fas fa-check-double"></i> Mark Selected as Settled
+                            </button>
+                            <button class="btn" style="background:rgba(255,255,255,0.2);color:#fff;" onclick="clearInvoiceSelection()">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                        </div>
                         <thead>
                             <tr>
+                                <th style="width:36px;"><input type="checkbox" id="invSelectAll" onchange="toggleAllInvoices(this)" title="Select all"></th>
                                 <th>Invoice #</th>
                                 <th>Date</th>
                                 <th>Customer</th>
@@ -419,7 +431,7 @@
                             </tr>
                         </thead>
                         <tbody id="invoicesTableBody">
-                            <tr><td colspan="9" class="empty-state">No invoices yet. Create your first invoice!</td></tr>
+                            <tr><td colspan="10" class="empty-state">No invoices yet. Create your first invoice!</td></tr>
                         </tbody>
                     </table>
                     <div class="pagination-bar" id="invoicesPagination"></div>
@@ -1852,6 +1864,44 @@
                 <button class="btn btn-secondary" onclick="closeModal('itemMasterModal')">Cancel</button>
                 <button class="btn btn-outline" onclick="resetItemMasterForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
                 <button class="btn btn-primary" onclick="saveItemMaster()">Save Item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Settle Modal -->
+    <div class="modal-overlay" id="bulkSettleModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-check-double"></i> Settle Selected Invoices</h3>
+                <button class="modal-close" onclick="closeModal('bulkSettleModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="card" style="background:var(--bg-secondary);padding:12px;margin-bottom:16px;border-radius:8px;" id="bulkSettleSummary"></div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Payment Date *</label>
+                        <input type="date" id="bulkPayDate" class="input">
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Method</label>
+                        <select id="bulkPayMethod" class="input">
+                            <option value="Cash">Cash</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Cheque">Cheque</option>
+                            <option value="Online">Online</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Reference / Notes</label>
+                    <input type="text" id="bulkPayNotes" class="input" placeholder="Batch reference, cheque no...">
+                </div>
+                <div id="bulkSettleList" style="margin-top:12px;max-height:220px;overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('bulkSettleModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmBulkSettle()"><i class="fas fa-check-double"></i> Confirm Settlement</button>
             </div>
         </div>
     </div>
