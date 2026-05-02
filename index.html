@@ -2401,6 +2401,80 @@
 
     </div><!-- /appShell -->
 
+    <!-- ==================== FLOATING CALCULATOR ==================== -->
+    <style>
+    .calc-panel{position:fixed;bottom:82px;right:20px;z-index:9999;width:272px;border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.22);overflow:hidden;display:none;animation:calcSlide .18s ease;}
+    @keyframes calcSlide{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+    .calc-header{background:#2b6cb5;padding:11px 16px;display:flex;align-items:center;justify-content:space-between;}
+    .calc-header span{color:#fff;font-weight:600;font-size:14px;}
+    .calc-header button{background:none;border:none;color:rgba(255,255,255,.8);cursor:pointer;font-size:15px;padding:2px 6px;border-radius:6px;transition:.15s;}
+    .calc-header button:hover{color:#fff;background:rgba(255,255,255,.15);}
+    .calc-screen{background:#1b1f3b;padding:14px 16px 10px;text-align:right;}
+    .calc-expr{color:#7a84b3;font-size:12px;min-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
+    .calc-display{color:#fff;font-size:30px;font-weight:300;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;}
+    .calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#d8dde6;}
+    .cb{border:none;padding:0;height:60px;font-size:18px;font-weight:500;cursor:pointer;transition:.1s;display:flex;align-items:center;justify-content:center;}
+    .cb:active{opacity:.7;}
+    .cb-num{background:#fff;color:#1a1a2e;}
+    .cb-num:hover{background:#f0f4ff;}
+    .cb-fn{background:#eef2f9;color:#2b6cb5;}
+    .cb-fn:hover{background:#dde6f5;}
+    .cb-op{background:#e8f0fe;color:#2b6cb5;font-size:20px;}
+    .cb-op:hover{background:#d0e0ff;}
+    .cb-op.active-op{background:#2b6cb5;color:#fff;}
+    .cb-eq{background:#2b6cb5;color:#fff;font-size:22px;}
+    .cb-eq:hover{background:#1d4e9a;}
+    .cb-zero{grid-column:span 2;}
+    .calc-footer{background:#fff;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #eee;}
+    .calc-footer button{border:none;background:none;cursor:pointer;font-size:12px;color:#2b6cb5;padding:4px 8px;border-radius:6px;font-weight:500;transition:.15s;}
+    .calc-footer button:hover{background:#eef2f9;}
+    .calc-fab{position:fixed;bottom:20px;right:20px;z-index:9998;width:52px;height:52px;border-radius:50%;background:#2b6cb5;color:#fff;border:none;cursor:pointer;box-shadow:0 4px 18px rgba(43,108,181,.45);font-size:20px;display:flex;align-items:center;justify-content:center;transition:.2s;}
+    .calc-fab:hover{background:#1d4e9a;transform:scale(1.07);}
+    </style>
+
+    <div class="calc-panel" id="calcPanel">
+        <div class="calc-header">
+            <span><i class="fas fa-calculator"></i>&nbsp; Calculator</span>
+            <button onclick="toggleCalc()" title="Close"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="calc-screen">
+            <div class="calc-expr" id="calcExpr"></div>
+            <div class="calc-display" id="calcDisplay">0</div>
+        </div>
+        <div class="calc-grid">
+            <button class="cb cb-fn" onclick="calcFn('clear')">C</button>
+            <button class="cb cb-fn" onclick="calcFn('negate')">±</button>
+            <button class="cb cb-fn" onclick="calcFn('percent')">%</button>
+            <button class="cb cb-op" id="calcOpDiv" onclick="calcOp('/')">÷</button>
+
+            <button class="cb cb-num" onclick="calcNum('7')">7</button>
+            <button class="cb cb-num" onclick="calcNum('8')">8</button>
+            <button class="cb cb-num" onclick="calcNum('9')">9</button>
+            <button class="cb cb-op" id="calcOpMul" onclick="calcOp('*')">×</button>
+
+            <button class="cb cb-num" onclick="calcNum('4')">4</button>
+            <button class="cb cb-num" onclick="calcNum('5')">5</button>
+            <button class="cb cb-num" onclick="calcNum('6')">6</button>
+            <button class="cb cb-op" id="calcOpSub" onclick="calcOp('-')">−</button>
+
+            <button class="cb cb-num" onclick="calcNum('1')">1</button>
+            <button class="cb cb-num" onclick="calcNum('2')">2</button>
+            <button class="cb cb-num" onclick="calcNum('3')">3</button>
+            <button class="cb cb-op" id="calcOpAdd" onclick="calcOp('+')">+</button>
+
+            <button class="cb cb-num cb-zero" onclick="calcNum('0')">0</button>
+            <button class="cb cb-num" onclick="calcNum('.')">.</button>
+            <button class="cb cb-eq" onclick="calcFn('equals')">=</button>
+        </div>
+        <div class="calc-footer">
+            <button onclick="calcFn('back')"><i class="fas fa-delete-left"></i> Back</button>
+            <button onclick="calcCopy()" id="calcCopyBtn"><i class="fas fa-copy"></i> Copy</button>
+        </div>
+    </div>
+    <button class="calc-fab" id="calcFAB" onclick="toggleCalc()" title="Calculator">
+        <i class="fas fa-calculator"></i>
+    </button>
+
     <script src="firebase-config.js"></script>
     <script src="app.js"></script>
 

@@ -3143,3 +3143,136 @@ function importBackup() {
     };
     input.click();
 }
+
+// ==================== FLOATING CALCULATOR ====================
+const _calc = {
+    display: '0', expr: '',
+    operand1: null, operator: null,
+    waitingForOperand2: false, justEqualed: false
+};
+
+function toggleCalc() {
+    const panel = document.getElementById('calcPanel');
+    const fab   = document.getElementById('calcFAB');
+    const open  = panel.style.display !== 'none' && panel.style.display !== '';
+    panel.style.display = open ? 'none' : 'block';
+    fab.innerHTML = open
+        ? '<i class="fas fa-calculator"></i>'
+        : '<i class="fas fa-xmark"></i>';
+}
+
+function _calcUpdate() {
+    document.getElementById('calcDisplay').textContent = _calc.display;
+    document.getElementById('calcExpr').textContent    = _calc.expr;
+    // Highlight active operator button
+    ['Add','Sub','Mul','Div'].forEach(id => {
+        const el = document.getElementById('calcOp' + id);
+        if (el) el.classList.remove('active-op');
+    });
+    if (_calc.operator && _calc.waitingForOperand2) {
+        const map = { '+': 'Add', '-': 'Sub', '*': 'Mul', '/': 'Div' };
+        const btn = document.getElementById('calcOp' + map[_calc.operator]);
+        if (btn) btn.classList.add('active-op');
+    }
+}
+
+function calcNum(n) {
+    if (_calc.waitingForOperand2 || _calc.justEqualed) {
+        _calc.display = n === '.' ? '0.' : n;
+        _calc.waitingForOperand2 = false;
+        _calc.justEqualed = false;
+    } else {
+        if (n === '.' && _calc.display.includes('.')) return;
+        _calc.display = (_calc.display === '0' && n !== '.') ? n : _calc.display + n;
+    }
+    _calcUpdate();
+}
+
+function calcOp(op) {
+    const cur = parseFloat(_calc.display);
+    if (_calc.operator && !_calc.waitingForOperand2) {
+        const res = _calcDo(_calc.operand1, cur, _calc.operator);
+        _calc.display = _calcFmt(res);
+        _calc.operand1 = res;
+    } else {
+        _calc.operand1 = cur;
+    }
+    _calc.operator = op;
+    _calc.waitingForOperand2 = true;
+    _calc.justEqualed = false;
+    const sym = { '+': '+', '-': '−', '*': '×', '/': '÷' }[op];
+    _calc.expr = _calcFmt(_calc.operand1) + ' ' + sym;
+    _calcUpdate();
+}
+
+function _calcDo(a, b, op) {
+    if (op === '+') return a + b;
+    if (op === '-') return a - b;
+    if (op === '*') return a * b;
+    if (op === '/') return b === 0 ? 0 : a / b;
+    return b;
+}
+
+function _calcFmt(n) {
+    if (!isFinite(n) || isNaN(n)) return 'Error';
+    return parseFloat(n.toPrecision(12)).toString();
+}
+
+function calcFn(fn) {
+    const cur = parseFloat(_calc.display);
+    if (fn === 'clear') {
+        _calc.display = '0'; _calc.expr = '';
+        _calc.operand1 = null; _calc.operator = null;
+        _calc.waitingForOperand2 = false; _calc.justEqualed = false;
+    } else if (fn === 'negate') {
+        _calc.display = _calcFmt(-cur);
+    } else if (fn === 'percent') {
+        if (_calc.operand1 !== null && _calc.operator) {
+            // e.g. 200 + 15% → 200 + 30
+            _calc.display = _calcFmt(_calc.operand1 * cur / 100);
+        } else {
+            _calc.display = _calcFmt(cur / 100);
+        }
+    } else if (fn === 'back') {
+        if (_calc.justEqualed || _calc.waitingForOperand2) return;
+        _calc.display = _calc.display.length > 1 ? _calc.display.slice(0, -1) : '0';
+    } else if (fn === 'equals') {
+        if (_calc.operator !== null && _calc.operand1 !== null) {
+            const sym = { '+': '+', '-': '−', '*': '×', '/': '÷' }[_calc.operator];
+            const res = _calcDo(_calc.operand1, cur, _calc.operator);
+            _calc.expr = _calcFmt(_calc.operand1) + ' ' + sym + ' ' + _calcFmt(cur) + ' =';
+            _calc.display = _calcFmt(res);
+            _calc.operand1 = null; _calc.operator = null;
+            _calc.waitingForOperand2 = false; _calc.justEqualed = true;
+        }
+    }
+    _calcUpdate();
+}
+
+function calcCopy() {
+    navigator.clipboard.writeText(_calc.display).then(() => {
+        const btn = document.getElementById('calcCopyBtn');
+        if (!btn) return;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        setTimeout(() => { btn.innerHTML = orig; }, 1600);
+    }).catch(() => {});
+}
+
+// Keyboard support when calculator is open
+document.addEventListener('keydown', e => {
+    const panel = document.getElementById('calcPanel');
+    if (!panel || panel.style.display === 'none' || panel.style.display === '') return;
+    // Don't intercept when typing in an input/textarea
+    if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+    if (e.key >= '0' && e.key <= '9') { calcNum(e.key); e.preventDefault(); }
+    else if (e.key === '.')  { calcNum('.'); e.preventDefault(); }
+    else if (e.key === '+')  { calcOp('+'); e.preventDefault(); }
+    else if (e.key === '-')  { calcOp('-'); e.preventDefault(); }
+    else if (e.key === '*')  { calcOp('*'); e.preventDefault(); }
+    else if (e.key === '/')  { calcOp('/'); e.preventDefault(); }
+    else if (e.key === 'Enter' || e.key === '=') { calcFn('equals'); e.preventDefault(); }
+    else if (e.key === 'Backspace') { calcFn('back'); e.preventDefault(); }
+    else if (e.key === 'Escape') { toggleCalc(); e.preventDefault(); }
+    else if (e.key === 'c' || e.key === 'C') { calcFn('clear'); e.preventDefault(); }
+});
