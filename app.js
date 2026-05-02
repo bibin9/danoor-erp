@@ -381,6 +381,7 @@ function saveItemMaster() {
         code: document.getElementById('imCode').value.trim(),
         name: document.getElementById('imName').value.trim(),
         category: document.getElementById('imCategory').value,
+        serviceType: document.getElementById('imServiceType').value,
         desc: document.getElementById('imDesc').value.trim(),
         defaultPrice: parseFloat(document.getElementById('imPrice').value) || 0,
     };
@@ -397,6 +398,7 @@ function saveItemMaster() {
 function resetItemMasterForm() {
     clearForm(['imCode','imName','imDesc','imEditId']);
     document.getElementById('imCategory').value = 'Visa Services';
+    document.getElementById('imServiceType').value = '';
     document.getElementById('imPrice').value = 0;
     document.getElementById('itemMasterModalTitle').textContent = 'Add Item';
 }
@@ -408,6 +410,7 @@ function editItemMaster(id) {
     document.getElementById('imCode').value = item.code || '';
     document.getElementById('imName').value = item.name;
     document.getElementById('imCategory').value = item.category || 'Visa Services';
+    document.getElementById('imServiceType').value = item.serviceType || '';
     document.getElementById('imDesc').value = item.desc || '';
     document.getElementById('imPrice').value = item.defaultPrice || 0;
     document.getElementById('itemMasterModalTitle').textContent = 'Edit Item';
@@ -2088,6 +2091,7 @@ function updateDashboard() {
     if (dashLow) { const ls = inventory.filter(i => i.qty <= i.reorder); dashLow.innerHTML = ls.length ? ls.map(i => `<tr><td>${esc(i.name)}</td><td>${esc(i.sku)}</td><td style="color:var(--danger);font-weight:600;">${i.qty}</td><td>${i.reorder}</td></tr>`).join('') : '<tr><td colspan="4" class="empty-state">No low stock items</td></tr>'; }
     renderCharts();
     renderExpiryAlerts();
+    updateDashboardServiceStats();
 }
 
 function renderCharts() {
@@ -2538,12 +2542,160 @@ function filterByDate(items, period, dateField = 'date') {
     });
 }
 
+// ==================== SERVICE STATISTICS ====================
+const SERVICE_TYPES = ['New Visa', 'Renewal Visa', 'Visa Cancellation', 'New Trade License', 'Renewal Trade License'];
+
+// Keyword fallback: match description text → service type
+const SVC_KEYWORDS = {
+    'New Visa':             ['new visa','new employment visa','employment visa new','fresh visa','new residence visa','new work visa','new investor visa','new visit visa','new dependent visa','new family visa'],
+    'Renewal Visa':         ['visa renewal','renewal visa','renew visa','visa renew','visa extension','extend visa','visa renewed','renewed visa'],
+    'Visa Cancellation':    ['visa cancel','cancel visa','visa cancellation','cancellation visa','visa terminate','terminate visa','visa exit'],
+    'New Trade License':    ['new trade licence','new trade license','new licence','new license','company formation','new company','business setup','new establishment','new llc','new freezone'],
+    'Renewal Trade License':['trade licence renewal','trade license renewal','renewal trade licence','renewal trade license','renew trade','licence renewal','license renewal','renew licence','renew license'],
+};
+
+function getServiceTypeForDesc(desc) {
+    if (!desc) return null;
+    const d = desc.toLowerCase();
+    // First: check item master exact/partial name match
+    const im = (appData.itemMaster || []).find(i => i.serviceType && d.includes((i.name||'').toLowerCase()));
+    if (im && im.serviceType) return im.serviceType;
+    // Second: keyword matching
+    for (const [type, keywords] of Object.entries(SVC_KEYWORDS)) {
+        if (keywords.some(kw => d.includes(kw))) return type;
+    }
+    return null;
+}
+
+// Returns array of { type, qty, revenue, invoiceId, invoiceNumber, customerName, date, desc }
+function extractServiceLines(invoices) {
+    const rows = [];
+    invoices.forEach(inv => {
+        (inv.lines || []).forEach(line => {
+            const type = getServiceTypeForDesc(line.desc);
+            if (type) {
+                rows.push({
+                    type,
+                    qty: line.qty || 1,
+                    revenue: (line.qty || 1) * (line.price || ((line.govt || 0) + (line.svc || 0))),
+                    invoiceId: inv.id,
+                    invoiceNumber: inv.number,
+                    customerName: inv.customerName || '',
+                    date: inv.date || '',
+                    desc: line.desc,
+                });
+            }
+        });
+    });
+    return rows;
+}
+
+function countServiceTypes(invoices) {
+    const counts = {}, revenue = {};
+    SERVICE_TYPES.forEach(t => { counts[t] = 0; revenue[t] = 0; });
+    extractServiceLines(invoices).forEach(r => {
+        counts[r.type] = (counts[r.type] || 0) + r.qty;
+        revenue[r.type] = (revenue[r.type] || 0) + r.revenue;
+    });
+    return { counts, revenue };
+}
+
+let _svcBarChart, _svcRevChart, _svcTrendChart;
+
+function renderServiceStats() {
+    const period = document.getElementById('rptSvcPeriod')?.value || 'year';
+    const invoices = filterByDate((appData.invoices || []).filter(i => i.status !== 'Cancelled'), period);
+    const { counts, revenue } = countServiceTypes(invoices);
+    const total = SERVICE_TYPES.reduce((s, t) => s + counts[t], 0);
+    const totalRev = SERVICE_TYPES.reduce((s, t) => s + revenue[t], 0);
+    const ids = { 'New Visa': 'NewVisa', 'Renewal Visa': 'RenewalVisa', 'Visa Cancellation': 'VisaCancel', 'New Trade License': 'NewTL', 'Renewal Trade License': 'RenewalTL' };
+    SERVICE_TYPES.forEach(t => {
+        const id = ids[t];
+        if (document.getElementById('svcCount' + id)) document.getElementById('svcCount' + id).textContent = counts[t];
+        if (document.getElementById('svcRev' + id)) document.getElementById('svcRev' + id).textContent = fmt(revenue[t]);
+    });
+    if (document.getElementById('svcCountTotal')) document.getElementById('svcCountTotal').textContent = total;
+    if (document.getElementById('svcRevTotal')) document.getElementById('svcRevTotal').textContent = fmt(totalRev);
+
+    const colors = ['#2b6cb5','#27ae60','#e74c3c','#f39c12','#8e44ad'];
+
+    // Bar chart - counts
+    if (_svcBarChart) _svcBarChart.destroy();
+    const barCtx = document.getElementById('svcBarChart');
+    if (barCtx) {
+        _svcBarChart = new Chart(barCtx, {
+            type: 'bar',
+            data: { labels: SERVICE_TYPES, datasets: [{ label: 'Count', data: SERVICE_TYPES.map(t => counts[t]), backgroundColor: colors.map(c => c + 'cc'), borderRadius: 6, borderSkipped: false }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+    }
+
+    // Doughnut - revenue
+    if (_svcRevChart) _svcRevChart.destroy();
+    const revCtx = document.getElementById('svcRevChart');
+    if (revCtx) {
+        const data = SERVICE_TYPES.map(t => revenue[t]);
+        _svcRevChart = new Chart(revCtx, {
+            type: 'doughnut',
+            data: { labels: SERVICE_TYPES, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } } } }
+        });
+    }
+
+    // Monthly trend - last 6 months
+    const now = new Date();
+    const trendLabels = [], trendDatasets = SERVICE_TYPES.map((t, i) => ({ label: t, data: [], borderColor: colors[i], backgroundColor: colors[i] + '22', fill: false, tension: 0.3, borderWidth: 2, pointRadius: 3 }));
+    for (let m = 5; m >= 0; m--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+        const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        trendLabels.push(d.toLocaleDateString('en-AE', { month: 'short', year: '2-digit' }));
+        const monthInv = (appData.invoices || []).filter(i => i.status !== 'Cancelled' && new Date(i.date) >= d && new Date(i.date) <= end);
+        const mc = countServiceTypes(monthInv).counts;
+        SERVICE_TYPES.forEach((t, i) => trendDatasets[i].data.push(mc[t]));
+    }
+    if (_svcTrendChart) _svcTrendChart.destroy();
+    const trendCtx = document.getElementById('svcTrendChart');
+    if (trendCtx) {
+        _svcTrendChart = new Chart(trendCtx, {
+            type: 'line',
+            data: { labels: trendLabels, datasets: trendDatasets },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+    }
+
+    // Detail table
+    const rows = extractServiceLines(invoices).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const tbody = document.getElementById('rptSvcDetailBody');
+    if (tbody) {
+        tbody.innerHTML = rows.length ? rows.map(r => {
+            const col = colors[SERVICE_TYPES.indexOf(r.type)] || '#888';
+            return `<tr><td>${r.date}</td><td><strong>${esc(r.invoiceNumber)}</strong></td><td>${esc(r.customerName)}</td><td>${esc(r.desc)}</td>
+                <td><span class="status-badge" style="background:${col}22;color:${col};border:1px solid ${col}44">${esc(r.type)}</span></td>
+                <td>${r.qty}</td><td>${fmt(r.revenue)}</td></tr>`;
+        }).join('') : '<tr><td colspan="7" class="empty-state">No matching service lines found. Tip: Set Service Type on Item Master items.</td></tr>';
+    }
+}
+
+function updateDashboardServiceStats() {
+    const period = document.getElementById('dashSvcPeriod')?.value || 'month';
+    const labels = { month: 'This Month', quarter: 'This Quarter', year: 'This Year' };
+    const el = document.getElementById('dashSvcPeriodLabel');
+    if (el) el.textContent = '— ' + (labels[period] || '');
+    const invoices = filterByDate((appData.invoices || []).filter(i => i.status !== 'Cancelled'), period);
+    const { counts } = countServiceTypes(invoices);
+    const total = SERVICE_TYPES.reduce((s, t) => s + counts[t], 0);
+    const ids = { 'New Visa': 'NewVisa', 'Renewal Visa': 'RenewalVisa', 'Visa Cancellation': 'VisaCancel', 'New Trade License': 'NewTL', 'Renewal Trade License': 'RenewalTL' };
+    SERVICE_TYPES.forEach(t => { const el = document.getElementById('dashSvc' + ids[t]); if (el) el.textContent = counts[t]; });
+    const tot = document.getElementById('dashSvcTotal'); if (tot) tot.textContent = total;
+}
+
 function renderAllReports() {
     renderReportPnL();
     renderRevenueReport();
     renderVatReport();
     renderAgingReport();
     renderLoansReport();
+    renderServiceStats();
 }
 
 // Chart instance storage
