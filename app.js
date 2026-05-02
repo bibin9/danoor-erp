@@ -2543,7 +2543,7 @@ function filterByDate(items, period, dateField = 'date') {
 }
 
 // ==================== SERVICE STATISTICS ====================
-const SERVICE_TYPES = ['New Visa', 'Renewal Visa', 'Visa Cancellation', 'New Trade License', 'Renewal Trade License'];
+const SERVICE_TYPES = ['New Visa', 'Renewal Visa', 'Visa Cancellation', 'Visit Visa', 'New Trade License', 'Renewal Trade License'];
 
 // Keyword fallback: match description text → service type
 function getServiceTypeForDesc(desc) {
@@ -2559,6 +2559,7 @@ function getServiceTypeForDesc(desc) {
     //    regardless of word order, punctuation or separators
     const has = (...words) => words.some(w => d.includes(w));
 
+    const isVisit     = has('visit');
     const isVisa      = has('visa');
     const isTrade     = has('trade lic', 'trade license', 'trade licence');
     const isLicOnly   = !isVisa && has('licence', 'license');  // "licence renewal" without "trade" still counts
@@ -2566,6 +2567,9 @@ function getServiceTypeForDesc(desc) {
     const isNew       = has('new ') || d.startsWith('new');
     const isRenewal   = has('renew', 'extension');   // covers renewal / renewed / renewing / renew
     const isCancel    = has('cancel');               // covers cancel / cancellation / cancelled
+
+    // Visit Visa — check BEFORE general visa rules so it gets its own bucket
+    if (isVisa && isVisit) return 'Visit Visa';
 
     // Priority: cancellation first, then renewal, then new
     if (isVisa  && isCancel)   return 'Visa Cancellation';
@@ -2623,7 +2627,7 @@ function renderServiceStats() {
     const { counts, revenue } = countServiceTypes(invoices);
     const total = SERVICE_TYPES.reduce((s, t) => s + counts[t], 0);
     const totalRev = SERVICE_TYPES.reduce((s, t) => s + revenue[t], 0);
-    const ids = { 'New Visa': 'NewVisa', 'Renewal Visa': 'RenewalVisa', 'Visa Cancellation': 'VisaCancel', 'New Trade License': 'NewTL', 'Renewal Trade License': 'RenewalTL' };
+    const ids = { 'New Visa': 'NewVisa', 'Renewal Visa': 'RenewalVisa', 'Visa Cancellation': 'VisaCancel', 'Visit Visa': 'VisitVisa', 'New Trade License': 'NewTL', 'Renewal Trade License': 'RenewalTL' };
     SERVICE_TYPES.forEach(t => {
         const id = ids[t];
         if (document.getElementById('svcCount' + id)) document.getElementById('svcCount' + id).textContent = counts[t];
@@ -2699,7 +2703,7 @@ function updateDashboardServiceStats() {
     const invoices = filterByDate((appData.invoices || []).filter(i => i.status !== 'Cancelled'), period);
     const { counts } = countServiceTypes(invoices);
     const total = SERVICE_TYPES.reduce((s, t) => s + counts[t], 0);
-    const ids = { 'New Visa': 'NewVisa', 'Renewal Visa': 'RenewalVisa', 'Visa Cancellation': 'VisaCancel', 'New Trade License': 'NewTL', 'Renewal Trade License': 'RenewalTL' };
+    const ids = { 'New Visa': 'NewVisa', 'Renewal Visa': 'RenewalVisa', 'Visa Cancellation': 'VisaCancel', 'Visit Visa': 'VisitVisa', 'New Trade License': 'NewTL', 'Renewal Trade License': 'RenewalTL' };
     SERVICE_TYPES.forEach(t => { const el = document.getElementById('dashSvc' + ids[t]); if (el) el.textContent = counts[t]; });
     const tot = document.getElementById('dashSvcTotal'); if (tot) tot.textContent = total;
 }
