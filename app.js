@@ -750,6 +750,68 @@ function calcInvoiceTotal() {
     return { subtotal, vat, vatRate, total: subtotal + vat };
 }
 
+// ---- Invoice payment helpers ----
+function invPaidAmount(inv) {
+    return (inv.payments || []).reduce((s, p) => s + (p.amount || 0), 0);
+}
+function invOutstanding(inv) {
+    return Math.max(0, (inv.total || 0) - invPaidAmount(inv));
+}
+function invEffectiveStatus(inv) {
+    const paid = invPaidAmount(inv);
+    if (paid <= 0) return inv.status; // Draft, Sent, Overdue as set
+    if (paid >= (inv.total || 0) - 0.01) return 'Paid';
+    return 'Partial';
+}
+
+function openInvoicePaymentModal(id) {
+    const inv = (appData.invoices || []).find(i => i.id === id);
+    if (!inv) return;
+    document.getElementById('invPayInvoiceId').value = id;
+    document.getElementById('invPayDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('invPayAmount').value = '';
+    document.getElementById('invPayMethod').value = 'Cash';
+    document.getElementById('invPayNotes').value = '';
+    const paid = invPaidAmount(inv);
+    const outstanding = invOutstanding(inv);
+    document.getElementById('invPayInfo').innerHTML =
+        `<strong>${esc(inv.number)}</strong> — ${esc(inv.customerName)}<br>` +
+        `Invoice Total: <strong>${fmt(inv.total)}</strong> &nbsp;|&nbsp; ` +
+        `Paid: <strong style="color:var(--success)">${fmt(paid)}</strong> &nbsp;|&nbsp; ` +
+        `Outstanding: <strong style="color:var(--warning)">${fmt(outstanding)}</strong>`;
+    const hist = (inv.payments || []).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+    document.getElementById('invPayHistorySection').innerHTML = hist.length
+        ? `<h4 style="margin-bottom:8px;font-size:13px;color:var(--text-secondary)">Payment History</h4>
+           <table class="data-table" style="font-size:12px;">
+               <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Notes</th></tr></thead>
+               <tbody>${hist.map(p => `<tr><td>${p.date}</td><td>${fmt(p.amount)}</td><td>${esc(p.method||'-')}</td><td>${esc(p.notes||'-')}</td></tr>`).join('')}</tbody>
+           </table>` : '';
+    openModal('invoicePaymentModal');
+}
+
+function saveInvoicePayment() {
+    if (!_beginSave()) return;
+    const invoiceId = document.getElementById('invPayInvoiceId').value;
+    const date = document.getElementById('invPayDate').value;
+    const amount = parseFloat(document.getElementById('invPayAmount').value) || 0;
+    const method = document.getElementById('invPayMethod').value;
+    const notes = document.getElementById('invPayNotes').value.trim();
+    if (!date) { _endSave(); return showToast('Please enter payment date', 'error'); }
+    if (amount <= 0) { _endSave(); return showToast('Please enter a valid amount', 'error'); }
+    const inv = (appData.invoices || []).find(i => i.id === invoiceId);
+    if (!inv) { _endSave(); return; }
+    const outstanding = invOutstanding(inv);
+    if (amount > outstanding + 0.01) { _endSave(); return showToast('Payment (' + fmt(amount) + ') exceeds outstanding balance of ' + fmt(outstanding), 'error'); }
+    const payments = [...(inv.payments || []), { id: Date.now().toString(), date, amount, method, notes }];
+    const newPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
+    const newStatus = newPaid >= (inv.total || 0) - 0.01 ? 'Paid' : 'Partial';
+    fsUpdate('invoices', invoiceId, { payments, status: newStatus, paidAmount: newPaid }).then(() => {
+        _endSave();
+        closeModal('invoicePaymentModal');
+        showToast(newStatus === 'Paid' ? '✅ Invoice fully paid!' : `Payment of ${fmt(amount)} recorded!`);
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
+}
+
 function saveInvoice() {
     if (!_beginSave()) return;
     const editId = document.getElementById('invEditId').value;
@@ -871,22 +933,30 @@ function renderInvoices() {
     if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No invoices found</td></tr>'; renderPagination('invoices', 0, 0, 'renderInvoices'); }
     else {
         const pg = paginate(filtered, 'invoices');
-        tbody.innerHTML = pg.items.map(inv => `<tr>
-            <td><strong>${esc(inv.number)}</strong></td><td>${inv.date||''}</td>
-            <td>${esc(inv.customerName)}</td>
-            <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(inv.title || '-')}</td>
-            <td>${fmt(inv.subtotal)}</td><td>${fmt(inv.vat)}</td>
-            <td><strong>${fmt(inv.total)}</strong></td>
-            <td><span class="status-badge status-${inv.status}">${inv.status}</span></td>
-            <td style="white-space:nowrap;">
-                <button class="btn-icon" onclick="previewInvoice('${inv.id}')" title="Preview"><i class="fas fa-eye"></i></button>
-                <button class="btn-icon" onclick="editInvoice('${inv.id}')" title="Edit"><i class="fas fa-edit"></i></button>
-                <button class="btn-icon" onclick="deleteInvoice('${inv.id}')" title="Delete"><i class="fas fa-trash"></i></button>
-            </td></tr>`).join('');
+        tbody.innerHTML = pg.items.map(inv => {
+            const paid = invPaidAmount(inv);
+            const outstanding = invOutstanding(inv);
+            const st = invEffectiveStatus(inv);
+            const stColor = st === 'Paid' ? 'Paid' : st === 'Partial' ? 'Sent' : st === 'Overdue' ? 'Overdue' : 'Draft';
+            return `<tr>
+                <td><strong>${esc(inv.number)}</strong></td><td>${inv.date||''}</td>
+                <td>${esc(inv.customerName)}</td>
+                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(inv.title || '-')}</td>
+                <td><strong>${fmt(inv.total)}</strong></td>
+                <td style="color:var(--success)">${paid > 0 ? fmt(paid) : '-'}</td>
+                <td style="color:${outstanding > 0 ? 'var(--warning)' : 'var(--success)'}"><strong>${outstanding > 0 ? fmt(outstanding) : '✓ Settled'}</strong></td>
+                <td><span class="status-badge status-${stColor}">${st}</span></td>
+                <td style="white-space:nowrap;">
+                    ${outstanding > 0 ? `<button class="btn btn-sm btn-primary" onclick="openInvoicePaymentModal('${inv.id}')" title="Record Payment"><i class="fas fa-money-bill"></i></button>` : ''}
+                    <button class="btn-icon" onclick="previewInvoice('${inv.id}')" title="Preview"><i class="fas fa-eye"></i></button>
+                    <button class="btn-icon" onclick="editInvoice('${inv.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                    <button class="btn-icon" onclick="deleteInvoice('${inv.id}')" title="Delete"><i class="fas fa-trash"></i></button>
+                </td></tr>`;
+        }).join('');
         renderPagination('invoices', pg.totalPages, pg.total, 'renderInvoices');
     }
     // VAT summary
-    const paidInv = invoices.filter(i => i.status === 'Paid');
+    const paidInv = invoices.filter(i => i.status === 'Paid' || i.status === 'Partial');
     const outputVat = paidInv.reduce((s, i) => s + (i.vat || 0), 0);
     const expenses = appData.expenses || [];
     const purchases = appData.purchases || [];
@@ -1431,11 +1501,12 @@ function renderExpenses() {
 }
 
 function renderPnL() {
-    const invoices = (appData.invoices || []).filter(i => i.status === 'Paid');
+    const invoices = (appData.invoices || []).filter(i => i.status === 'Paid' || i.status === 'Partial');
     const cashMemos = appData.cashMemos || [];
     const expenses = appData.expenses || [];
     const purchases = (appData.purchases || []).filter(p => p.status === 'Paid');
-    const invoiceRevenue = invoices.reduce((s, i) => s + (i.subtotal||0), 0);
+    // Revenue = actual cash received (paidAmount for partial, subtotal for fully paid)
+    const invoiceRevenue = invoices.reduce((s, i) => s + (i.status === 'Paid' ? (i.subtotal||0) : invPaidAmount(i)), 0);
     const cashMemoRevenue = cashMemos.reduce((s, m) => s + (m.amount||0), 0);
     const totalRevenue = invoiceRevenue + cashMemoRevenue;
     if (document.getElementById('pnlInvRevenue')) document.getElementById('pnlInvRevenue').textContent = fmt(invoiceRevenue);
@@ -1909,7 +1980,7 @@ function updateDashboard() {
     const mtdInvRevenue = invoices.filter(i => i.status === 'Paid' && new Date(i.date) >= monthStart).reduce((s, i) => s + (i.total||0), 0);
     const mtdCashRevenue = cashMemos.filter(m => new Date(m.date) >= monthStart).reduce((s, m) => s + (m.total || m.amount || 0), 0);
     const mtdRevenue = mtdInvRevenue + mtdCashRevenue;
-    const outstanding = invoices.filter(i => i.status !== 'Paid').reduce((s, i) => s + (i.total||0), 0);
+    const outstanding = invoices.filter(i => i.status !== 'Paid' && i.status !== 'Cancelled').reduce((s, i) => s + invOutstanding(i), 0);
     if (document.getElementById('kpiRevenue')) document.getElementById('kpiRevenue').textContent = fmt(mtdRevenue);
     if (document.getElementById('kpiOutstanding')) document.getElementById('kpiOutstanding').textContent = fmt(outstanding);
     if (document.getElementById('kpiQuotations')) document.getElementById('kpiQuotations').textContent = quotations.filter(q => ['Draft','Sent'].includes(q.status)).length;
@@ -2391,12 +2462,12 @@ let _rptPnlChart, _rptExpChart, _rptRevChart, _rptAgingChart;
 
 function renderReportPnL() {
     const period = document.getElementById('rptPnlPeriod')?.value || 'year';
-    const invoices = filterByDate((appData.invoices || []).filter(i => i.status === 'Paid'), period);
+    const invoices = filterByDate((appData.invoices || []).filter(i => i.status === 'Paid' || i.status === 'Partial'), period);
     const cashMemos = filterByDate(appData.cashMemos || [], period);
     const expenses = filterByDate(appData.expenses || [], period);
     const purchases = filterByDate((appData.purchases || []).filter(p => p.status === 'Paid'), period);
 
-    const invoiceRevenue = invoices.reduce((s, i) => s + (i.subtotal || 0), 0);
+    const invoiceRevenue = invoices.reduce((s, i) => s + (i.status === 'Paid' ? (i.subtotal || 0) : invPaidAmount(i)), 0);
     const cashMemoRevenue = cashMemos.reduce((s, m) => s + (m.amount || 0), 0);
     const totalRevenue = invoiceRevenue + cashMemoRevenue;
     const totalCost = purchases.reduce((s, p) => s + (p.subtotal || 0), 0);
@@ -2470,7 +2541,7 @@ function renderReportPnL() {
 
 function renderRevenueReport() {
     const months = parseInt(document.getElementById('rptRevPeriod')?.value || '12');
-    const invoices = (appData.invoices || []).filter(i => i.status === 'Paid');
+    const invoices = (appData.invoices || []).filter(i => i.status === 'Paid' || i.status === 'Partial');
     const allCashMemos = appData.cashMemos || [];
     const now = new Date();
     const labels = [], revenueData = [], cashMemoData = [], expenseData = [];
@@ -2480,7 +2551,7 @@ function renderRevenueReport() {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
         labels.push(d.toLocaleDateString('en-AE', { month: 'short', year: '2-digit' }));
-        const invRev = invoices.filter(inv => { const id = new Date(inv.date); return id >= d && id <= end; }).reduce((s, inv) => s + (inv.total || 0), 0);
+        const invRev = invoices.filter(inv => { const id = new Date(inv.date); return id >= d && id <= end; }).reduce((s, inv) => s + (inv.status === 'Paid' ? (inv.total || 0) : invPaidAmount(inv)), 0);
         const cmRev = allCashMemos.filter(m => { const md = new Date(m.date); return md >= d && md <= end; }).reduce((s, m) => s + (m.amount || 0), 0);
         revenueData.push(invRev + cmRev);
         cashMemoData.push(cmRev);
@@ -2509,10 +2580,11 @@ function renderRevenueReport() {
     invoices.forEach(inv => {
         const name = inv.customerName || 'Walk-in';
         if (!custMap[name]) custMap[name] = { count: 0, subtotal: 0, vat: 0, total: 0, type: 'Invoice' };
+        const isPaid = inv.status === 'Paid';
         custMap[name].count++;
-        custMap[name].subtotal += inv.subtotal || 0;
-        custMap[name].vat += inv.vat || 0;
-        custMap[name].total += inv.total || 0;
+        custMap[name].subtotal += isPaid ? (inv.subtotal || 0) : invPaidAmount(inv);
+        custMap[name].vat += isPaid ? (inv.vat || 0) : 0;
+        custMap[name].total += isPaid ? (inv.total || 0) : invPaidAmount(inv);
     });
     allCashMemos.forEach(m => {
         const name = (m.customer || 'Walk-in') + ' (Cash Memo)';
@@ -2533,11 +2605,16 @@ function renderRevenueReport() {
 
 function renderVatReport() {
     const period = document.getElementById('rptVatPeriod')?.value || 'quarter';
-    const invoices = filterByDate((appData.invoices || []).filter(i => i.status === 'Paid'), period);
+    const invoices = filterByDate((appData.invoices || []).filter(i => i.status === 'Paid' || i.status === 'Partial'), period);
     const purchases = filterByDate((appData.purchases || []).filter(p => p.status === 'Paid'), period);
     const expenses = filterByDate((appData.expenses || []).filter(e => e.vatIncl === 'yes'), period);
 
-    const outputVat = invoices.reduce((s, i) => s + (i.vat || 0), 0);
+    // For partial invoices, count VAT proportional to amount collected
+    const outputVat = invoices.reduce((s, i) => {
+        if (i.status === 'Paid') return s + (i.vat || 0);
+        const ratio = (inv => inv.total > 0 ? invPaidAmount(inv) / inv.total : 0)(i);
+        return s + (i.vat || 0) * ratio;
+    }, 0);
     const inputVatPO = purchases.reduce((s, p) => s + (p.vat || 0), 0);
     const inputVatExp = expenses.reduce((s, e) => s + ((e.amount || 0) * DEFAULT_VAT_RATE), 0);
     const totalInputVat = inputVatPO + inputVatExp;
@@ -2573,11 +2650,12 @@ function renderAgingReport() {
     const rows = unpaid.map(inv => {
         const due = new Date(inv.dueDate || inv.date);
         const days = Math.max(0, Math.floor((now - due) / (1000 * 60 * 60 * 24)));
-        if (days <= 30) buckets.current += inv.total || 0;
-        else if (days <= 60) buckets.d31 += inv.total || 0;
-        else if (days <= 90) buckets.d61 += inv.total || 0;
-        else buckets.d90 += inv.total || 0;
-        return { ...inv, daysOut: days };
+        const outstanding = invOutstanding(inv);
+        if (days <= 30) buckets.current += outstanding;
+        else if (days <= 60) buckets.d31 += outstanding;
+        else if (days <= 90) buckets.d61 += outstanding;
+        else buckets.d90 += outstanding;
+        return { ...inv, daysOut: days, _outstanding: outstanding };
     }).sort((a, b) => b.daysOut - a.daysOut);
 
     if (document.getElementById('rptAging030')) document.getElementById('rptAging030').textContent = fmt(buckets.current);
@@ -2603,8 +2681,12 @@ function renderAgingReport() {
     const tbody = document.getElementById('rptAgingBody');
     if (tbody) {
         tbody.innerHTML = rows.length ? rows.map(inv =>
-            `<tr><td><strong>${esc(inv.number)}</strong></td><td>${esc(inv.customerName)}</td><td>${inv.date}</td><td>${inv.dueDate || '-'}</td><td>${fmt(inv.total)}</td><td>${inv.daysOut > 0 ? '<span style="color:var(--danger);font-weight:600;">' + inv.daysOut + ' days</span>' : 'Current'}</td><td><span class="status-badge status-${inv.status}">${inv.status}</span></td></tr>`
-        ).join('') : '<tr><td colspan="7" class="empty-state">No outstanding invoices</td></tr>';
+            `<tr><td><strong>${esc(inv.number)}</strong></td><td>${esc(inv.customerName)}</td><td>${inv.date}</td><td>${inv.dueDate || '-'}</td>
+             <td>${fmt(inv.total)}${inv._outstanding < inv.total ? ` <small style="color:var(--success)">(Paid: ${fmt(inv.total - inv._outstanding)})</small>` : ''}</td>
+             <td><strong style="color:var(--warning)">${fmt(inv._outstanding)}</strong></td>
+             <td>${inv.daysOut > 0 ? '<span style="color:var(--danger);font-weight:600;">' + inv.daysOut + ' days</span>' : 'Current'}</td>
+             <td><span class="status-badge status-${inv.status === 'Partial' ? 'Sent' : inv.status}">${inv.status}</span></td></tr>`
+        ).join('') : '<tr><td colspan="8" class="empty-state">No outstanding invoices</td></tr>';
     }
 }
 
@@ -2659,13 +2741,13 @@ function exportReportCSV() {
         purchases.forEach(p => { if (p.vat > 0) csv += p.date + ',' + p.number + ',"' + (p.supplierName||'') + '",' + (p.subtotal||0).toFixed(2) + ',' + ((p.vatRate||DEFAULT_VAT_RATE)*100).toFixed(0) + '%,' + (p.vat||0).toFixed(2) + ',Input\n'; });
     } else if (tabId === 'tab-rptAging') {
         filename = 'receivables-aging';
-        csv = 'Invoice,Customer,Date,Due Date,Amount,Days Outstanding,Status\n';
+        csv = 'Invoice,Customer,Date,Due Date,Total,Outstanding,Days Outstanding,Status\n';
         const unpaid = (appData.invoices || []).filter(i => i.status !== 'Paid' && i.status !== 'Cancelled');
         const now = new Date();
         unpaid.forEach(inv => {
             const due = new Date(inv.dueDate || inv.date);
             const days = Math.max(0, Math.floor((now - due) / (1000 * 60 * 60 * 24)));
-            csv += inv.number + ',"' + (inv.customerName||'') + '",' + inv.date + ',' + (inv.dueDate||'-') + ',' + (inv.total||0).toFixed(2) + ',' + days + ',' + inv.status + '\n';
+            csv += inv.number + ',"' + (inv.customerName||'') + '",' + inv.date + ',' + (inv.dueDate||'-') + ',' + (inv.total||0).toFixed(2) + ',' + invOutstanding(inv).toFixed(2) + ',' + days + ',' + inv.status + '\n';
         });
     } else if (tabId === 'tab-rptLoans') {
         filename = 'loans-liabilities';
