@@ -2546,24 +2546,39 @@ function filterByDate(items, period, dateField = 'date') {
 const SERVICE_TYPES = ['New Visa', 'Renewal Visa', 'Visa Cancellation', 'New Trade License', 'Renewal Trade License'];
 
 // Keyword fallback: match description text → service type
-const SVC_KEYWORDS = {
-    'New Visa':             ['new visa','new employment visa','employment visa new','fresh visa','new residence visa','new work visa','new investor visa','new visit visa','new dependent visa','new family visa'],
-    'Renewal Visa':         ['visa renewal','renewal visa','renew visa','visa renew','visa extension','extend visa','visa renewed','renewed visa'],
-    'Visa Cancellation':    ['visa cancel','cancel visa','visa cancellation','cancellation visa','visa terminate','terminate visa','visa exit'],
-    'New Trade License':    ['new trade licence','new trade license','new licence','new license','company formation','new company','business setup','new establishment','new llc','new freezone'],
-    'Renewal Trade License':['trade licence renewal','trade license renewal','renewal trade licence','renewal trade license','renew trade','licence renewal','license renewal','renew licence','renew license'],
-};
-
 function getServiceTypeForDesc(desc) {
     if (!desc) return null;
     const d = desc.toLowerCase();
-    // First: check item master exact/partial name match
-    const im = (appData.itemMaster || []).find(i => i.serviceType && d.includes((i.name||'').toLowerCase()));
-    if (im && im.serviceType) return im.serviceType;
-    // Second: keyword matching
-    for (const [type, keywords] of Object.entries(SVC_KEYWORDS)) {
-        if (keywords.some(kw => d.includes(kw))) return type;
+
+    // 1. Item master takes priority — match by serviceType tag on item
+    for (const item of (appData.itemMaster || [])) {
+        if (item.serviceType && item.name && d.includes(item.name.toLowerCase())) return item.serviceType;
     }
+
+    // 2. Word-presence matching — checks individual keywords exist anywhere in description
+    //    regardless of word order, punctuation or separators
+    const has = (...words) => words.some(w => d.includes(w));
+
+    const isVisa      = has('visa');
+    const isTrade     = has('trade lic', 'trade license', 'trade licence');
+    const isLicOnly   = !isVisa && has('licence', 'license');  // "licence renewal" without "trade" still counts
+    const isTradeLic  = isTrade || isLicOnly;
+    const isNew       = has('new ') || d.startsWith('new');
+    const isRenewal   = has('renew', 'extension');   // covers renewal / renewed / renewing / renew
+    const isCancel    = has('cancel');               // covers cancel / cancellation / cancelled
+
+    // Priority: cancellation first, then renewal, then new
+    if (isVisa  && isCancel)   return 'Visa Cancellation';
+    if (isVisa  && isRenewal)  return 'Renewal Visa';
+    if (isVisa  && isNew)      return 'New Visa';
+    if (isTradeLic && isRenewal) return 'Renewal Trade License';
+    if (isTradeLic && isNew)     return 'New Trade License';
+
+    // 3. Standalone word fallback — if ONLY "new visa / renewal / cancellation" written without extra context
+    if (isVisa && !isRenewal && !isCancel)  return 'New Visa';      // bare "visa" → assume new
+    if (isCancel && !isVisa)                return null;             // cancel without visa — ignore
+    if (isTradeLic && !isRenewal)           return 'New Trade License'; // bare "licence" → assume new
+
     return null;
 }
 
