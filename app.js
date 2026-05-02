@@ -2568,11 +2568,13 @@ function getServiceTypeForDesc(desc) {
     const isRenewal   = has('renew', 'extension');   // covers renewal / renewed / renewing / renew
     const isCancel    = has('cancel');               // covers cancel / cancellation / cancelled
 
-    // Visit Visa — check BEFORE general visa rules so it gets its own bucket
+    // Priority: cancellation FIRST — overrides even Visit Visa
+    if (isVisa  && isCancel)   return 'Visa Cancellation';
+
+    // Visit Visa — check before general new/renewal rules (only if NOT a cancellation)
     if (isVisa && isVisit) return 'Visit Visa';
 
-    // Priority: cancellation first, then renewal, then new
-    if (isVisa  && isCancel)   return 'Visa Cancellation';
+    // Then renewal, then new
     if (isVisa  && isRenewal)  return 'Renewal Visa';
     if (isVisa  && isNew)      return 'New Visa';
     if (isTradeLic && isRenewal) return 'Renewal Trade License';
