@@ -1066,7 +1066,7 @@ function previewInvoice(id) {
     if (!inv) return;
     document.getElementById('printModalTitle').textContent = 'Invoice Preview';
     document.getElementById('printPreviewContent').innerHTML = buildDocPreview({
-        type: 'TAX INVOICE', doc: inv, settings: appData.settings,
+        type: 'INVOICE', doc: inv, settings: appData.settings,
         extraMeta: `<div>Due: ${inv.dueDate}</div>${inv.title ? '<div>Re: ' + esc(inv.title) + '</div>' : ''}`,
         footer: (inv.notes ? '<strong>Notes:</strong> ' + esc(inv.notes) + '<br>' : '') + '<em>Tax invoice issued per UAE FTA regulations.</em>'
     });
