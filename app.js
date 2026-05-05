@@ -2408,7 +2408,7 @@ function getPrintStyles() {
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:'Inter',Arial,sans-serif; color:#333; font-size:14px; }
     .doc-preview { position:relative; max-width:800px; margin:0 auto; overflow:hidden; }
-    .doc-watermark { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-20deg); opacity:0.07; pointer-events:none; z-index:0; width:380px; }
+    .doc-watermark { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-20deg); opacity:0.05; pointer-events:none; z-index:0; width:380px; }
     .doc-watermark img { width:100%; display:block; }
     .doc-preview > *:not(.doc-watermark) { position:relative; z-index:1; }
     .doc-header-bar { background:linear-gradient(135deg,#2b49a6,#3361b5); color:#fff; padding:22px 30px; display:flex; justify-content:space-between; align-items:center; border-radius:0; }
