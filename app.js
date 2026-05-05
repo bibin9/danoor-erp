@@ -696,6 +696,7 @@ function renderQuotations() {
         return (!search || (q.number||'').toLowerCase().includes(search) || (q.customerName||'').toLowerCase().includes(search))
             && (!statusFilter || q.status === statusFilter);
     });
+    filtered = filterByDateInputs(filtered, 'date', 'quoteFromDate', 'quoteToDate');
     filtered = sortList(filtered, sortVal);
     const tbody = document.getElementById('quotationsTableBody');
     if (!tbody) return;
@@ -1016,6 +1017,7 @@ function renderInvoices() {
             && (!statusFilter || inv.status === statusFilter)
             && (!customerFilter || inv.customerName === customerFilter);
     });
+    filtered = filterByDateInputs(filtered, 'date', 'salesFromDate', 'salesToDate');
     filtered = sortList(filtered, sortVal);
     const tbody = document.getElementById('invoicesTableBody');
     if (!tbody) return;
@@ -1191,6 +1193,7 @@ function renderPurchases() {
         return (!search || (p.number||'').toLowerCase().includes(search) || (p.supplierName||'').toLowerCase().includes(search))
             && (!statusFilter || p.status === statusFilter);
     });
+    filtered = filterByDateInputs(filtered, 'date', 'poFromDate', 'poToDate');
     filtered = sortList(filtered, sortVal);
     const tbody = document.getElementById('purchasesTableBody');
     if (!tbody) return;
@@ -1535,6 +1538,7 @@ function renderCashMemos() {
     const search = (document.getElementById('cashMemoSearch')?.value || '').toLowerCase();
     const sortVal = document.getElementById('cashMemoSort')?.value || 'date-desc';
     if (search) memos = memos.filter(m => (m.receipt||'').toLowerCase().includes(search) || (m.customer||'').toLowerCase().includes(search) || (m.desc||'').toLowerCase().includes(search));
+    memos = filterByDateInputs(memos, 'date', 'cashMemoFromDate', 'cashMemoToDate');
     memos = sortList(memos, sortVal);
     const tbody = document.getElementById('cashMemosTableBody');
     if (!tbody) return;
@@ -1573,6 +1577,7 @@ function renderExpenses() {
     if (search) expenses = expenses.filter(e => (e.desc || '').toLowerCase().includes(search) || (e.category || '').toLowerCase().includes(search));
     if (supplierFilter) expenses = expenses.filter(e => e.supplierId === supplierFilter);
     if (categoryFilter) expenses = expenses.filter(e => e.category === categoryFilter);
+    expenses = filterByDateInputs(expenses, 'date', 'expFromDate', 'expToDate');
     expenses = sortList(expenses, sortVal);
 
     const tbody = document.getElementById('expensesTableBody');
@@ -1753,6 +1758,7 @@ function renderLoans() {
     const sortVal = document.getElementById('loanSort')?.value || 'date-desc';
     if (search) loans = loans.filter(l => (l.lenderName||'').toLowerCase().includes(search) || (l.purpose||'').toLowerCase().includes(search));
     if (statusFilter) loans = loans.filter(l => l.status === statusFilter);
+    loans = filterByDateInputs(loans, 'date', 'loanFromDate', 'loanToDate');
     // Recalculate status live
     loans = loans.map(l => ({ ...l, _repaid: loanRepaid(l), _outstanding: loanOutstanding(l), _status: loanStatus(l) }));
     if (sortVal === 'date-asc') loans.sort((a,b) => new Date(a.date) - new Date(b.date));
@@ -2443,6 +2449,28 @@ function getPrintStyles() {
     .doc-terms { text-align:center; font-size:12px; color:#999; padding:0 30px 20px; line-height:1.6; }
     @media print { body{padding:0;} .doc-preview{max-width:100%;} }
     `;
+}
+
+// ==================== DATE-RANGE FILTER HELPER ====================
+// Filters an array by a date field using values from From/To date inputs
+function filterByDateInputs(arr, dateField, fromInputId, toInputId) {
+    const from = document.getElementById(fromInputId)?.value || '';
+    const to   = document.getElementById(toInputId)?.value   || '';
+    if (!from && !to) return arr;
+    return arr.filter(item => {
+        const d = item[dateField];
+        if (!d) return false;
+        if (from && d < from) return false;
+        if (to   && d > to)   return false;
+        return true;
+    });
+}
+// Reset both date inputs in a list's filter bar and re-render
+function clearDateRange(fromId, toId, renderFn, pageKey) {
+    const f = document.getElementById(fromId); if (f) f.value = '';
+    const t = document.getElementById(toId);   if (t) t.value = '';
+    if (pageKey) setPage(pageKey, 1);
+    if (typeof window[renderFn] === 'function') window[renderFn]();
 }
 
 // ==================== UTILITIES ====================

@@ -331,6 +331,9 @@
                 </div>
                 <div class="filter-bar">
                     <input type="text" id="quoteSearch" placeholder="Search quotations..." class="input" oninput="renderQuotations()">
+                    <input type="date" id="quoteFromDate" class="input" title="From date" onchange="setPage('quotations',1);renderQuotations()" style="max-width:160px">
+                    <input type="date" id="quoteToDate" class="input" title="To date" onchange="setPage('quotations',1);renderQuotations()" style="max-width:160px">
+                    <button class="btn btn-secondary btn-sm" onclick="clearDateRange('quoteFromDate','quoteToDate','renderQuotations','quotations')" title="Clear dates"><i class="fas fa-calendar-xmark"></i></button>
                     <select id="quoteStatusFilter" class="input" onchange="renderQuotations()">
                         <option value="">All Status</option>
                         <option value="Draft">Draft</option>
@@ -398,6 +401,9 @@
                 <div class="tab-content active" id="tab-invoicesList">
                 <div class="filter-bar">
                     <input type="text" id="salesSearch" placeholder="Search invoices..." class="input" oninput="setPage('invoices',1);renderInvoices()">
+                    <input type="date" id="salesFromDate" class="input" title="From date" onchange="setPage('invoices',1);renderInvoices()" style="max-width:160px">
+                    <input type="date" id="salesToDate" class="input" title="To date" onchange="setPage('invoices',1);renderInvoices()" style="max-width:160px">
+                    <button class="btn btn-secondary btn-sm" onclick="clearDateRange('salesFromDate','salesToDate','renderInvoices','invoices')" title="Clear dates"><i class="fas fa-calendar-xmark"></i></button>
                     <select id="salesCustomerFilter" class="input" onchange="setPage('invoices',1);renderInvoices()">
                         <option value="">All Customers</option>
                     </select>
@@ -469,6 +475,9 @@
                 <div class="tab-content" id="tab-cashMemos">
                     <div class="filter-bar">
                         <input type="text" id="cashMemoSearch" placeholder="Search cash memos..." class="input" oninput="setPage('cashMemos',1);renderCashMemos()">
+                        <input type="date" id="cashMemoFromDate" class="input" title="From date" onchange="setPage('cashMemos',1);renderCashMemos()" style="max-width:160px">
+                        <input type="date" id="cashMemoToDate" class="input" title="To date" onchange="setPage('cashMemos',1);renderCashMemos()" style="max-width:160px">
+                        <button class="btn btn-secondary btn-sm" onclick="clearDateRange('cashMemoFromDate','cashMemoToDate','renderCashMemos','cashMemos')" title="Clear dates"><i class="fas fa-calendar-xmark"></i></button>
                         <select id="cashMemoSort" class="input" onchange="renderCashMemos()">
                             <option value="date-desc">Date (Newest)</option>
                             <option value="date-asc">Date (Oldest)</option>
@@ -507,6 +516,9 @@
                 </div>
                 <div class="filter-bar">
                     <input type="text" id="poSearch" placeholder="Search purchase orders..." class="input" oninput="renderPurchases()">
+                    <input type="date" id="poFromDate" class="input" title="From date" onchange="setPage('purchases',1);renderPurchases()" style="max-width:160px">
+                    <input type="date" id="poToDate" class="input" title="To date" onchange="setPage('purchases',1);renderPurchases()" style="max-width:160px">
+                    <button class="btn btn-secondary btn-sm" onclick="clearDateRange('poFromDate','poToDate','renderPurchases','purchases')" title="Clear dates"><i class="fas fa-calendar-xmark"></i></button>
                     <select id="poStatusFilter" class="input" onchange="renderPurchases()">
                         <option value="">All Status</option>
                         <option value="Draft">Draft</option>
@@ -643,6 +655,9 @@
                 <div class="tab-content" id="tab-expenses">
                     <div class="filter-bar">
                         <input type="text" id="expenseSearch" class="input" placeholder="Search description / name..." oninput="setPage('expenses',1);renderExpenses()">
+                        <input type="date" id="expFromDate" class="input" title="From date" onchange="setPage('expenses',1);renderExpenses()" style="max-width:160px">
+                        <input type="date" id="expToDate" class="input" title="To date" onchange="setPage('expenses',1);renderExpenses()" style="max-width:160px">
+                        <button class="btn btn-secondary btn-sm" onclick="clearDateRange('expFromDate','expToDate','renderExpenses','expenses')" title="Clear dates"><i class="fas fa-calendar-xmark"></i></button>
                         <select id="expSupplierFilter" class="input" onchange="setPage('expenses',1);renderExpenses()">
                             <option value="">All Suppliers</option>
                         </select>
@@ -1204,6 +1219,9 @@
                 <div class="card">
                     <div class="filter-bar">
                         <input type="text" class="input" id="loanSearch" placeholder="Search lender..." oninput="renderLoans()">
+                        <input type="date" id="loanFromDate" class="input" title="From date" onchange="setPage('loans',1);renderLoans()" style="max-width:160px">
+                        <input type="date" id="loanToDate" class="input" title="To date" onchange="setPage('loans',1);renderLoans()" style="max-width:160px">
+                        <button class="btn btn-secondary btn-sm" onclick="clearDateRange('loanFromDate','loanToDate','renderLoans','loans')" title="Clear dates"><i class="fas fa-calendar-xmark"></i></button>
                         <select class="input" id="loanStatusFilter" onchange="renderLoans()">
                             <option value="">All Status</option>
                             <option value="Outstanding">Outstanding</option>
