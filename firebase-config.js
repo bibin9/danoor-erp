@@ -141,6 +141,20 @@ auth.onAuthStateChanged(user => {
         document.getElementById('authScreen').style.display = 'flex';
         document.getElementById('appShell').style.display = 'none';
 
+        // Hidden admin trigger: ?newuser or #newuser shows signup form + the toggle link.
+        // Use this URL when you need to create a new staff account while signed out.
+        const wantSignup = location.hash.includes('newuser') || location.search.includes('newuser');
+        if (wantSignup) {
+            const lf = document.getElementById('loginForm');
+            const sf = document.getElementById('signupForm');
+            const tt = document.getElementById('authToggleText');
+            const at = document.getElementById('authTitle');
+            if (lf) lf.style.display = 'none';
+            if (sf) sf.style.display = 'block';
+            if (tt) { tt.style.display = ''; tt.innerHTML = 'Already have an account? <a href="#" onclick="toggleAuthMode();return false;">Login</a>'; }
+            if (at) at.textContent = 'Create Staff Account';
+        }
+
         // Detach Firestore listeners
         detachListeners();
     }
