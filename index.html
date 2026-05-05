@@ -1516,7 +1516,7 @@
                     </div>
                     <div class="form-group">
                         <label>Status</label>
-                        <select id="invStatus" class="input">
+                        <select id="invStatus" class="input" onchange="onInvStatusChange()">
                             <option value="Draft">Draft</option>
                             <option value="Sent">Sent</option>
                             <option value="Partial">Partial</option>
@@ -1527,6 +1527,17 @@
                     <div class="form-group">
                         <label>Linked Quotation</label>
                         <select id="invLinkedQuote" class="input"><option value="">None</option></select>
+                    </div>
+                </div>
+                <!-- Partial-payment inline row (shown only when status = Partial) -->
+                <div class="form-row" id="invPartialRow" style="display:none; background:#fff8e1; padding:10px 12px; border-radius:8px; border:1px solid #ffe082; margin-bottom:8px;">
+                    <div class="form-group">
+                        <label style="color:#a06800;"><i class="fas fa-money-bill-wave"></i> Amount Paid So Far (AED)</label>
+                        <input type="number" id="invPaidAmount" class="input" step="0.01" min="0" placeholder="0.00" oninput="updateInvOutstandingHint()">
+                    </div>
+                    <div class="form-group">
+                        <label style="color:#a06800;">Outstanding (AED)</label>
+                        <input type="text" id="invOutstandingHint" class="input" disabled style="background:#fff;color:#c62828;font-weight:600;">
                     </div>
                 </div>
                 <h4 style="margin-top:15px;">Line Items</h4>

@@ -751,6 +751,7 @@ function calcInvoiceTotal() {
     document.getElementById('invSubtotal').textContent = 'AED ' + subtotal.toFixed(2);
     document.getElementById('invVat').textContent = 'AED ' + vat.toFixed(2);
     document.getElementById('invTotal').textContent = 'AED ' + (subtotal + vat).toFixed(2);
+    if (typeof updateInvOutstandingHint === 'function') updateInvOutstandingHint();
     return { subtotal, vat, vatRate, total: subtotal + vat };
 }
 
@@ -902,6 +903,25 @@ function confirmBulkSettle() {
     });
 }
 
+// Show/hide partial-payment row when status changes
+function onInvStatusChange() {
+    const status = document.getElementById('invStatus').value;
+    const row = document.getElementById('invPartialRow');
+    if (!row) return;
+    row.style.display = status === 'Partial' ? '' : 'none';
+    if (status === 'Partial') updateInvOutstandingHint();
+}
+
+// Live outstanding hint while user types Paid amount
+function updateInvOutstandingHint() {
+    const totalEl = document.getElementById('invTotal');
+    const total = totalEl ? parseFloat(totalEl.textContent.replace(/[^0-9.]/g, '')) || 0 : 0;
+    const paid  = parseFloat(document.getElementById('invPaidAmount')?.value) || 0;
+    const outstanding = Math.max(0, total - paid);
+    const hint = document.getElementById('invOutstandingHint');
+    if (hint) hint.value = 'AED ' + outstanding.toFixed(2);
+}
+
 function saveInvoice() {
     if (!_beginSave()) return;
     const editId = document.getElementById('invEditId').value;
@@ -921,16 +941,65 @@ function saveInvoice() {
     const autoNumber = (s.invPrefix || 'INV-') + (s.invNext || 1001);
     const enteredNumber = (document.getElementById('invNumber').value || '').trim();
     const invoiceNumber = enteredNumber || autoNumber;
+    let status = document.getElementById('invStatus').value;
+
+    // ---- Inline payment handling: minimize edits ----
+    const editingInv     = editId ? (appData.invoices || []).find(i => i.id === editId) : null;
+    const existingPaid   = editingInv ? invPaidAmount(editingInv) : 0;
+    const existingPays   = editingInv ? (editingInv.payments || []) : [];
+    const today          = new Date().toISOString().slice(0, 10);
+    let payments         = existingPays;
+    let paidAmount       = existingPaid;
+
+    if (status === 'Paid') {
+        // Auto-settle: top-up to total in one entry
+        paidAmount = totals.total;
+        const topUp = totals.total - existingPaid;
+        if (topUp > 0.01) {
+            payments = [...existingPays, { id: 'pay_' + Date.now(), date: today, amount: topUp, method: 'Cash', notes: 'Marked as Paid' }];
+        }
+    } else if (status === 'Partial') {
+        const enteredPaid = parseFloat(document.getElementById('invPaidAmount').value) || 0;
+        if (enteredPaid <= 0)               { _endSave(); return showToast('Enter the amount paid so far', 'error'); }
+        if (enteredPaid > totals.total + 0.01) { _endSave(); return showToast('Paid amount cannot exceed total', 'error'); }
+        if (enteredPaid >= totals.total - 0.01) {
+            // Promote to Paid automatically
+            status = 'Paid';
+            paidAmount = totals.total;
+            const topUp = totals.total - existingPaid;
+            if (topUp > 0.01) {
+                payments = [...existingPays, { id: 'pay_' + Date.now(), date: today, amount: topUp, method: 'Cash', notes: 'Auto-promoted to Paid' }];
+            }
+        } else if (Math.abs(enteredPaid - existingPaid) < 0.01) {
+            // No change in amount → keep existing payments untouched
+            paidAmount = existingPaid;
+        } else if (enteredPaid > existingPaid) {
+            // Adding a top-up
+            const topUp = enteredPaid - existingPaid;
+            paidAmount = enteredPaid;
+            payments = [...existingPays, { id: 'pay_' + Date.now(), date: today, amount: topUp, method: 'Cash', notes: 'Partial payment via edit' }];
+        } else {
+            // Reduced amount → consolidate into a single entry
+            paidAmount = enteredPaid;
+            payments = [{ id: 'pay_' + Date.now(), date: today, amount: enteredPaid, method: 'Cash', notes: 'Adjusted via edit' }];
+        }
+    } else {
+        // Draft / Sent / Overdue → clear any payments
+        payments = [];
+        paidAmount = 0;
+    }
+
     const invoice = {
         number: invoiceNumber,
         date: document.getElementById('invDate').value,
         dueDate: document.getElementById('invDueDate').value,
         customerId, customerName: customer ? customer.name : 'Walk-in Customer',
         title: document.getElementById('invTitle').value.trim(),
-        status: document.getElementById('invStatus').value,
+        status,
         lines, subtotal: totals.subtotal, vat: totals.vat, vatRate: totals.vatRate, total: totals.total,
         notes: document.getElementById('invNotes').value.trim(),
-        linkedQuote: document.getElementById('invLinkedQuote').value || ''
+        linkedQuote: document.getElementById('invLinkedQuote').value || '',
+        payments, paidAmount
     };
     let promise;
     if (editId) { promise = fsUpdate('invoices', editId, invoice); }
@@ -955,6 +1024,8 @@ function resetInvoiceForm() {
     document.getElementById('invVatRate').value = '0';
     document.getElementById('invoiceModalTitle').textContent = 'New Invoice';
     document.getElementById('invLineItemsBody').innerHTML = '<tr>' + getInvLineRowHtml('', 1, 0) + '</tr>';
+    if (document.getElementById('invPaidAmount')) document.getElementById('invPaidAmount').value = '';
+    if (document.getElementById('invPartialRow')) document.getElementById('invPartialRow').style.display = 'none';
     calcInvoiceTotal();
 }
 
@@ -976,6 +1047,12 @@ function editInvoice(id) {
         document.getElementById('invLinkedQuote').value = inv.linkedQuote || '';
         if (inv.vatRate !== undefined) document.getElementById('invVatRate').value = inv.vatRate;
         calcInvoiceTotal();
+        // Pre-fill partial-payment field if applicable
+        const paid = invPaidAmount(inv);
+        if (document.getElementById('invPaidAmount')) {
+            document.getElementById('invPaidAmount').value = (inv.status === 'Partial' && paid > 0) ? paid : '';
+        }
+        onInvStatusChange();
     }, 100);
 }
 
