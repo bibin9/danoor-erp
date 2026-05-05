@@ -2359,48 +2359,99 @@ function getDocFileName() {
     return (parts.length ? parts.join('_') : 'document').replace(/[^a-zA-Z0-9_-]/g, '');
 }
 
+// ---- Shared PDF setup: works on iOS, Android & desktop ----
+function _isMobileDevice() {
+    return /iPhone|iPad|iPod|Android|webOS|BlackBerry|Windows Phone/i.test(navigator.userAgent);
+}
+
+// Wait for all <img> in a node to fully load (or timeout) — critical for mobile
+// where html2canvas may snapshot the DOM before the logo is decoded.
+function _waitForImagesIn(el) {
+    const imgs = el.querySelectorAll('img');
+    if (!imgs.length) return Promise.resolve();
+    return Promise.all(Array.from(imgs).map(img => {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return new Promise(resolve => {
+            const done = () => resolve();
+            img.addEventListener('load',  done, { once: true });
+            img.addEventListener('error', done, { once: true });
+            setTimeout(done, 4000); // hard timeout so we never hang
+        });
+    }));
+}
+
+// Builds the off-screen rendering wrapper with a fixed 800px stage so the
+// PDF layout is identical regardless of device viewport.
+function _buildPdfStage(sourceEl) {
+    const clone = sourceEl.cloneNode(true);
+    clone.style.width  = '800px';
+    clone.style.margin = '0';
+    clone.style.padding = '0';
+    clone.style.background = '#fff';
+
+    const wrapper = document.createElement('div');
+    // Keep it offscreen but with real dimensions so layout actually computes.
+    wrapper.style.position      = 'fixed';
+    wrapper.style.left          = '0';
+    wrapper.style.top           = '0';
+    wrapper.style.width         = '800px';
+    wrapper.style.zIndex        = '-1';
+    wrapper.style.opacity       = '0';
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.background    = '#fff';
+    wrapper.style.overflow      = 'hidden';
+
+    const styleEl = document.createElement('style');
+    styleEl.textContent = getPrintStyles();
+    wrapper.appendChild(styleEl);
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+    return { clone, wrapper };
+}
+
+function _pdfOptions(fileName) {
+    const mobile = _isMobileDevice();
+    return {
+        margin: 0,
+        filename: fileName,
+        image:   { type: 'jpeg', quality: 0.95 },
+        html2canvas: {
+            scale:            mobile ? 1.5 : 2,
+            useCORS:          true,
+            letterRendering:  true,
+            width:            800,
+            windowWidth:      800,         // forces layout to render at desktop width
+            windowHeight:     1200,
+            backgroundColor:  '#ffffff',
+            logging:          false,
+            allowTaint:       true,
+            imageTimeout:     5000,
+            scrollX:          0,
+            scrollY:          0,
+            x:                0,
+            y:                0,
+        },
+        jsPDF:    { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        // Use natural page breaks so multi-page docs don't get cropped on mobile.
+        pagebreak:{ mode: ['css', 'legacy'] }
+    };
+}
+
 function exportPDF() {
     const el = document.getElementById('printableDoc');
     if (!el) { showToast('No document to export', 'error'); return; }
     const fileName = getDocFileName() + '.pdf';
-
-    // Show loading
     showToast('Generating PDF...');
 
-    // Clone the element so we can style it for export without affecting the modal
-    const clone = el.cloneNode(true);
-    clone.style.width = '800px';
-    clone.style.margin = '0';
-    clone.style.padding = '0';
-
-    // Create a temporary container
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'fixed';
-    wrapper.style.left = '-9999px';
-    wrapper.style.top = '0';
-    wrapper.appendChild(clone);
-    document.body.appendChild(wrapper);
-
-    // Apply print styles inline to the clone
-    const styleEl = document.createElement('style');
-    styleEl.textContent = getPrintStyles();
-    wrapper.insertBefore(styleEl, clone);
-
-    const opt = {
-        margin: 0,
-        filename: fileName,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 800 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-    };
-
-    html2pdf().set(opt).from(clone).save().then(() => {
+    const { clone, wrapper } = _buildPdfStage(el);
+    _waitForImagesIn(clone).then(() => {
+        return html2pdf().set(_pdfOptions(fileName)).from(clone).save();
+    }).then(() => {
         document.body.removeChild(wrapper);
         showToast('PDF downloaded: ' + fileName, 'success');
     }).catch(err => {
-        document.body.removeChild(wrapper);
-        showToast('PDF export failed: ' + err.message, 'error');
+        if (wrapper.parentNode) document.body.removeChild(wrapper);
+        showToast('PDF export failed: ' + (err.message || err), 'error');
     });
 }
 
@@ -2408,31 +2459,14 @@ function exportPDFBlob() {
     return new Promise((resolve, reject) => {
         const el = document.getElementById('printableDoc');
         if (!el) { reject('No document'); return; }
-
-        const clone = el.cloneNode(true);
-        clone.style.width = '800px';
-        clone.style.margin = '0';
-        const wrapper = document.createElement('div');
-        wrapper.style.position = 'fixed';
-        wrapper.style.left = '-9999px';
-        wrapper.appendChild(clone);
-        const styleEl = document.createElement('style');
-        styleEl.textContent = getPrintStyles();
-        wrapper.insertBefore(styleEl, clone);
-        document.body.appendChild(wrapper);
-
-        const opt = {
-            margin: 0,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, letterRendering: true, width: 800 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-
-        html2pdf().set(opt).from(clone).outputPdf('blob').then(blob => {
+        const { clone, wrapper } = _buildPdfStage(el);
+        _waitForImagesIn(clone).then(() => {
+            return html2pdf().set(_pdfOptions('document.pdf')).from(clone).outputPdf('blob');
+        }).then(blob => {
             document.body.removeChild(wrapper);
             resolve(blob);
         }).catch(err => {
-            document.body.removeChild(wrapper);
+            if (wrapper.parentNode) document.body.removeChild(wrapper);
             reject(err);
         });
     });
@@ -2490,7 +2524,7 @@ function getPrintStyles() {
     return `
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family:'Inter',Arial,sans-serif; color:#333; font-size:14px; }
-    .doc-preview { position:relative; max-width:800px; margin:0 auto; overflow:hidden; }
+    .doc-preview { position:relative; max-width:800px; margin:0 auto; }
     .doc-watermark { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-20deg); opacity:0.05; pointer-events:none; z-index:0; width:380px; }
     .doc-watermark img { width:100%; display:block; }
     .doc-preview > *:not(.doc-watermark) { position:relative; z-index:1; }
