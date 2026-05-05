@@ -141,6 +141,9 @@
             <a href="#" class="nav-item" data-page="loans">
                 <i class="fas fa-hand-holding-dollar"></i><span>Loans & Liabilities</span>
             </a>
+            <a href="#" class="nav-item" data-page="tasks">
+                <i class="fas fa-list-check"></i><span>Tasks / Work-in-Progress</span>
+            </a>
             <div class="nav-section-label">Master Data</div>
             <a href="#" class="nav-item" data-page="contacts">
                 <i class="fas fa-address-book"></i><span>Contacts</span>
@@ -267,6 +270,19 @@
                     <div class="chart-card">
                         <h3>Expenses Breakdown</h3>
                         <canvas id="expenseChart"></canvas>
+                    </div>
+                </div>
+                <!-- Current Work / Tasks Card -->
+                <div class="card" style="margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                        <h3 style="margin:0">✅ Current Work <small style="font-size:12px;color:var(--text-secondary);font-weight:400" id="dashTaskSummary"></small></h3>
+                        <div style="display:flex;gap:6px;">
+                            <button class="btn btn-sm btn-primary" onclick="quickAddTask()"><i class="fas fa-plus"></i> Add</button>
+                            <button class="btn btn-sm btn-secondary" onclick="navigateToPage('tasks')">View All</button>
+                        </div>
+                    </div>
+                    <div id="dashTasksList" style="min-height:60px;">
+                        <div style="text-align:center;padding:18px;color:var(--text-secondary);font-size:13px;">Loading...</div>
                     </div>
                 </div>
                 <!-- Service Overview Card -->
@@ -1247,6 +1263,74 @@
                 </div>
             </section>
 
+            <!-- ==================== TASKS / WORK-IN-PROGRESS ==================== -->
+            <section class="page" id="page-tasks">
+                <div class="page-header">
+                    <h2>Tasks / Work-in-Progress</h2>
+                    <button class="btn btn-primary" onclick="resetTaskForm();openModal('taskModal')">
+                        <i class="fas fa-plus"></i> Add Task
+                    </button>
+                </div>
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-icon" style="background:#7e8794"><i class="fas fa-clock"></i></div>
+                        <div class="summary-info"><div class="summary-label">Pending</div><div class="summary-value" id="taskCountPending">0</div></div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon" style="background:#2b6cb5"><i class="fas fa-spinner"></i></div>
+                        <div class="summary-info"><div class="summary-label">In Progress</div><div class="summary-value" id="taskCountInProgress">0</div></div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon" style="background:#27ae60"><i class="fas fa-check-circle"></i></div>
+                        <div class="summary-info"><div class="summary-label">Completed Today</div><div class="summary-value" id="taskCountDoneToday">0</div></div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon" style="background:#e74c3c"><i class="fas fa-triangle-exclamation"></i></div>
+                        <div class="summary-info"><div class="summary-label">Overdue</div><div class="summary-value" id="taskCountOverdue">0</div></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="filter-bar">
+                        <input type="text" id="taskSearch" class="input" placeholder="Search title / customer / notes..." oninput="setPage('tasks',1);renderTasks()">
+                        <input type="date" id="taskFromDate" class="input" title="Due from" onchange="setPage('tasks',1);renderTasks()" style="max-width:160px">
+                        <input type="date" id="taskToDate" class="input" title="Due to" onchange="setPage('tasks',1);renderTasks()" style="max-width:160px">
+                        <button class="btn btn-secondary btn-sm" onclick="clearDateRange('taskFromDate','taskToDate','renderTasks','tasks')" title="Clear dates"><i class="fas fa-calendar-xmark"></i></button>
+                        <select id="taskStatusFilter" class="input" onchange="setPage('tasks',1);renderTasks()">
+                            <option value="active">Active (Pending + In Progress)</option>
+                            <option value="">All Status</option>
+                            <option value="Pending">Pending</option>
+                            <option value="InProgress">In Progress</option>
+                            <option value="Done">Done</option>
+                        </select>
+                        <select id="taskPriorityFilter" class="input" onchange="setPage('tasks',1);renderTasks()">
+                            <option value="">All Priority</option>
+                            <option value="Urgent">Urgent</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                        <select id="taskCustomerFilter" class="input" onchange="setPage('tasks',1);renderTasks()">
+                            <option value="">All Customers</option>
+                        </select>
+                        <select id="taskSort" class="input" onchange="renderTasks()">
+                            <option value="due-asc">Due Date ↑</option>
+                            <option value="due-desc">Due Date ↓</option>
+                            <option value="priority">Priority</option>
+                            <option value="created-desc">Newest</option>
+                        </select>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th style="width:40px;"></th><th>Title</th><th>Customer</th><th>Priority</th><th>Status</th><th>Due Date</th><th>Linked</th><th style="width:170px;">Actions</th></tr>
+                        </thead>
+                        <tbody id="tasksTableBody">
+                            <tr><td colspan="8" class="empty-state">No tasks yet</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="pagination-bar" id="tasksPagination"></div>
+                </div>
+            </section>
+
             <!-- ==================== SETTINGS ==================== -->
             <section class="page" id="page-settings">
                 <div class="page-header">
@@ -2185,6 +2269,71 @@
         </div>
     </div>
 
+    <!-- ==================== TASK MODAL ==================== -->
+    <div class="modal-overlay" id="taskModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="taskModalTitle">Add Task</h3>
+                <button class="modal-close" onclick="closeModal('taskModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="taskEditId">
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" id="taskTitle" class="input" placeholder="e.g. Renew Mohammed's Visa">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Customer (optional)</label>
+                        <select id="taskCustomer" class="input"><option value="">— None —</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Due Date</label>
+                        <input type="date" id="taskDueDate" class="input">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select id="taskPriority" class="input">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                            <option value="Urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="taskStatus" class="input">
+                            <option value="Pending" selected>Pending</option>
+                            <option value="InProgress">In Progress</option>
+                            <option value="Done">Done</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Linked Invoice (optional)</label>
+                        <select id="taskLinkedInvoice" class="input"><option value="">— None —</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Linked Quotation (optional)</label>
+                        <select id="taskLinkedQuote" class="input"><option value="">— None —</option></select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="taskNotes" class="input" rows="3" placeholder="Anything relevant..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('taskModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="resetTaskForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
+                <button class="btn btn-primary" onclick="saveTask()"><i class="fas fa-check"></i> Save Task</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Journal Entry Modal -->
     <div class="modal-overlay" id="journalModal">
         <div class="modal modal-lg">
@@ -2407,6 +2556,7 @@
             <a href="#" class="mobile-more-item" data-page="inventory"><i class="fas fa-boxes-stacked"></i> Inventory</a>
             <a href="#" class="mobile-more-item" data-page="accounting"><i class="fas fa-calculator"></i> Accounting</a>
             <a href="#" class="mobile-more-item" data-page="reports"><i class="fas fa-chart-pie"></i> Reports</a>
+            <a href="#" class="mobile-more-item" data-page="tasks"><i class="fas fa-list-check"></i> Tasks / WIP</a>
             <a href="#" class="mobile-more-item" data-page="hr"><i class="fas fa-users"></i> HR & Payroll</a>
             <a href="#" class="mobile-more-item" data-page="contacts"><i class="fas fa-address-book"></i> Contacts</a>
             <a href="#" class="mobile-more-item" data-page="itemmaster"><i class="fas fa-list-check"></i> Item Master</a>
@@ -2459,6 +2609,21 @@
     .calc-footer button:hover{background:#eef2f9;}
     .calc-fab{position:fixed;bottom:20px;right:20px;z-index:9998;width:52px;height:52px;border-radius:50%;background:#2b6cb5;color:#fff;border:none;cursor:pointer;box-shadow:0 4px 18px rgba(43,108,181,.45);font-size:20px;display:flex;align-items:center;justify-content:center;transition:.2s;}
     .calc-fab:hover{background:#1d4e9a;transform:scale(1.07);}
+    .task-fab{position:fixed;bottom:20px;right:84px;z-index:9998;width:52px;height:52px;border-radius:50%;background:#27ae60;color:#fff;border:none;cursor:pointer;box-shadow:0 4px 18px rgba(39,174,96,.45);font-size:20px;display:flex;align-items:center;justify-content:center;transition:.2s;}
+    .task-fab:hover{background:#1e8449;transform:scale(1.07);}
+    /* Priority/status badges for tasks */
+    .pri-Urgent{background:#fce4ec;color:#c62828;border:1px solid #f8bbd0;}
+    .pri-High{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;}
+    .pri-Medium{background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;}
+    .pri-Low{background:#f5f5f5;color:#616161;border:1px solid #e0e0e0;}
+    .pri-badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block;}
+    .task-row-overdue{background:#fff5f5 !important;}
+    .task-row-done{opacity:.55;}
+    .task-row-done .task-title{text-decoration:line-through;}
+    .dash-task-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);gap:8px;}
+    .dash-task-item:last-child{border-bottom:none;}
+    .dash-task-item .task-title{flex:1;font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .dash-task-meta{font-size:11px;color:var(--text-secondary);}
     </style>
 
     <div class="calc-panel" id="calcPanel">
@@ -2502,6 +2667,9 @@
     </div>
     <button class="calc-fab" id="calcFAB" onclick="toggleCalc()" title="Calculator">
         <i class="fas fa-calculator"></i>
+    </button>
+    <button class="task-fab" id="taskFAB" onclick="quickAddTask()" title="Quick add task">
+        <i class="fas fa-list-check"></i>
     </button>
 
     <script src="firebase-config.js"></script>
@@ -2581,12 +2749,14 @@
         const titleMap = {
             dashboard: 'Dashboard', quotations: 'Quotations', sales: 'Invoices',
             purchases: 'Purchase Orders', inventory: 'Inventory', accounting: 'Accounting',
-            reports: 'Reports', hr: 'HR & Payroll', contacts: 'Contacts', services: 'Service Catalogue', settings: 'Settings'
+            reports: 'Reports', hr: 'HR & Payroll', contacts: 'Contacts', services: 'Service Catalogue', settings: 'Settings',
+            loans: 'Loans & Liabilities', tasks: 'Tasks / Work-in-Progress', itemmaster: 'Item Master'
         };
         document.getElementById('pageTitle').textContent = titleMap[page] || page;
         document.getElementById('sidebar').classList.remove('mobile-open');
         if (page === 'dashboard') updateDashboard();
         if (page === 'accounting') renderPnL();
+        if (page === 'tasks') renderTasks();
         if (page === 'reports') renderAllReports();
         window.scrollTo(0, 0);
     }

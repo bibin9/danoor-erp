@@ -2175,6 +2175,7 @@ function updateDashboard() {
     renderCharts();
     renderExpiryAlerts();
     updateDashboardServiceStats();
+    if (typeof renderDashboardTasks === 'function') renderDashboardTasks();
 }
 
 function renderCharts() {
@@ -3420,3 +3421,257 @@ document.addEventListener('keydown', e => {
     else if (e.key === 'Escape') { toggleCalc(); e.preventDefault(); }
     else if (e.key === 'c' || e.key === 'C') { calcFn('clear'); e.preventDefault(); }
 });
+
+// ==================== TASKS / WORK-IN-PROGRESS ====================
+const TASK_PRIORITY_RANK = { 'Urgent': 1, 'High': 2, 'Medium': 3, 'Low': 4 };
+const TASK_STATUS_LABEL  = { 'Pending': 'Pending', 'InProgress': 'In Progress', 'Done': 'Done' };
+const TASK_STATUS_COLOR  = { 'Pending': '#7e8794', 'InProgress': '#2b6cb5', 'Done': '#27ae60' };
+
+function _todayISO() { return new Date().toISOString().slice(0,10); }
+function _isOverdue(t) {
+    return t.status !== 'Done' && t.dueDate && t.dueDate < _todayISO();
+}
+
+function quickAddTask() {
+    resetTaskForm();
+    openModal('taskModal');
+    setTimeout(() => { const ti = document.getElementById('taskTitle'); if (ti) ti.focus(); }, 200);
+}
+
+function resetTaskForm() {
+    document.getElementById('taskEditId').value = '';
+    document.getElementById('taskTitle').value = '';
+    document.getElementById('taskDueDate').value = '';
+    document.getElementById('taskPriority').value = 'Medium';
+    document.getElementById('taskStatus').value = 'Pending';
+    document.getElementById('taskNotes').value = '';
+    document.getElementById('taskModalTitle').textContent = 'Add Task';
+    populateTaskDropdowns();
+}
+
+function populateTaskDropdowns() {
+    const custSel = document.getElementById('taskCustomer');
+    if (custSel) {
+        const cv = custSel.value;
+        const customers = (appData.contacts || []).filter(c => c.type === 'Customer' || c.type === 'Both');
+        custSel.innerHTML = '<option value="">- None -</option>' +
+            customers.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+        custSel.value = cv;
+    }
+    const invSel = document.getElementById('taskLinkedInvoice');
+    if (invSel) {
+        const cv = invSel.value;
+        const invs = (appData.invoices || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 100);
+        invSel.innerHTML = '<option value="">- None -</option>' +
+            invs.map(i => `<option value="${i.id}">${esc(i.number)} - ${esc(i.customerName||'')}</option>`).join('');
+        invSel.value = cv;
+    }
+    const qSel = document.getElementById('taskLinkedQuote');
+    if (qSel) {
+        const cv = qSel.value;
+        const qs = (appData.quotations || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 100);
+        qSel.innerHTML = '<option value="">- None -</option>' +
+            qs.map(q => `<option value="${q.id}">${esc(q.number)} - ${esc(q.customerName||'')}</option>`).join('');
+        qSel.value = cv;
+    }
+}
+
+function saveTask() {
+    if (!_beginSave()) return;
+    const editId = document.getElementById('taskEditId').value;
+    const title  = document.getElementById('taskTitle').value.trim();
+    if (!title) { _endSave(); return showToast('Task title is required', 'error'); }
+
+    const customerId = document.getElementById('taskCustomer').value || '';
+    const customer   = customerId ? (appData.contacts || []).find(c => c.id === customerId) : null;
+    const linkedInvId = document.getElementById('taskLinkedInvoice').value || '';
+    const linkedInv   = linkedInvId ? (appData.invoices || []).find(i => i.id === linkedInvId) : null;
+    const linkedQuoteId = document.getElementById('taskLinkedQuote').value || '';
+    const linkedQuote   = linkedQuoteId ? (appData.quotations || []).find(q => q.id === linkedQuoteId) : null;
+
+    const status = document.getElementById('taskStatus').value;
+    const task = {
+        title,
+        customerId, customerName: customer ? customer.name : '',
+        linkedInvoiceId: linkedInvId, linkedInvoiceNumber: linkedInv ? linkedInv.number : '',
+        linkedQuoteId, linkedQuoteNumber: linkedQuote ? linkedQuote.number : '',
+        priority: document.getElementById('taskPriority').value,
+        status,
+        dueDate: document.getElementById('taskDueDate').value || '',
+        notes:   document.getElementById('taskNotes').value.trim(),
+        completedAt: status === 'Done' ? _todayISO() : ''
+    };
+
+    const promise = editId ? fsUpdate('tasks', editId, task) : fsAdd('tasks', task);
+    promise.then(() => { _endSave(); closeModal('taskModal'); showToast('Task saved!'); })
+           .catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
+}
+
+function editTask(id) {
+    const t = (appData.tasks || []).find(x => x.id === id);
+    if (!t) return;
+    document.getElementById('taskEditId').value = t.id;
+    document.getElementById('taskTitle').value = t.title || '';
+    document.getElementById('taskDueDate').value = t.dueDate || '';
+    document.getElementById('taskPriority').value = t.priority || 'Medium';
+    document.getElementById('taskStatus').value = t.status || 'Pending';
+    document.getElementById('taskNotes').value = t.notes || '';
+    document.getElementById('taskModalTitle').textContent = 'Edit Task';
+    openModal('taskModal');
+    setTimeout(() => {
+        populateTaskDropdowns();
+        document.getElementById('taskCustomer').value = t.customerId || '';
+        document.getElementById('taskLinkedInvoice').value = t.linkedInvoiceId || '';
+        document.getElementById('taskLinkedQuote').value = t.linkedQuoteId || '';
+    }, 100);
+}
+
+function deleteTask(id) {
+    if (!confirm('Delete this task?')) return;
+    fsDelete('tasks', id).then(() => showToast('Task deleted'));
+}
+
+// One-click status cycle: Pending -> InProgress -> Done -> Pending
+function cycleTaskStatus(id) {
+    const t = (appData.tasks || []).find(x => x.id === id);
+    if (!t) return;
+    const next = t.status === 'Pending' ? 'InProgress' : t.status === 'InProgress' ? 'Done' : 'Pending';
+    fsUpdate('tasks', id, { status: next, completedAt: next === 'Done' ? _todayISO() : '' });
+}
+
+function toggleTaskDone(id) {
+    const t = (appData.tasks || []).find(x => x.id === id);
+    if (!t) return;
+    const newStatus = t.status === 'Done' ? 'Pending' : 'Done';
+    fsUpdate('tasks', id, { status: newStatus, completedAt: newStatus === 'Done' ? _todayISO() : '' });
+}
+
+function renderTasks() {
+    let tasks = [...(appData.tasks || [])];
+
+    const custSel = document.getElementById('taskCustomerFilter');
+    if (custSel) {
+        const cv = custSel.value;
+        const customerNames = [...new Set(tasks.map(t => t.customerName).filter(Boolean))].sort();
+        custSel.innerHTML = '<option value="">All Customers</option>' +
+            customerNames.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+        custSel.value = cv;
+    }
+
+    const search   = (document.getElementById('taskSearch')?.value || '').toLowerCase();
+    const stFilter = document.getElementById('taskStatusFilter')?.value;
+    const prFilter = document.getElementById('taskPriorityFilter')?.value || '';
+    const cuFilter = document.getElementById('taskCustomerFilter')?.value || '';
+    const sortVal  = document.getElementById('taskSort')?.value || 'due-asc';
+
+    if (search) tasks = tasks.filter(t =>
+        (t.title||'').toLowerCase().includes(search) ||
+        (t.customerName||'').toLowerCase().includes(search) ||
+        (t.notes||'').toLowerCase().includes(search));
+    if (stFilter === 'active') tasks = tasks.filter(t => t.status !== 'Done');
+    else if (stFilter)         tasks = tasks.filter(t => t.status === stFilter);
+    if (prFilter) tasks = tasks.filter(t => t.priority === prFilter);
+    if (cuFilter) tasks = tasks.filter(t => t.customerName === cuFilter);
+    tasks = filterByDateInputs(tasks, 'dueDate', 'taskFromDate', 'taskToDate');
+
+    if (sortVal === 'priority') {
+        tasks.sort((a,b) => (TASK_PRIORITY_RANK[a.priority]||9) - (TASK_PRIORITY_RANK[b.priority]||9));
+    } else if (sortVal === 'created-desc') {
+        tasks.sort((a,b) => {
+            const ad = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate() : new Date(0);
+            const bd = b.createdAt && b.createdAt.toDate ? b.createdAt.toDate() : new Date(0);
+            return bd - ad;
+        });
+    } else if (sortVal === 'due-desc') {
+        tasks.sort((a,b) => (b.dueDate||'').localeCompare(a.dueDate||''));
+    } else {
+        tasks.sort((a,b) => {
+            const av = a.dueDate || '9999-99-99';
+            const bv = b.dueDate || '9999-99-99';
+            return av.localeCompare(bv);
+        });
+    }
+
+    const all = appData.tasks || [];
+    const today = _todayISO();
+    const cPend = all.filter(t => t.status === 'Pending').length;
+    const cProg = all.filter(t => t.status === 'InProgress').length;
+    const cDone = all.filter(t => t.status === 'Done' && t.completedAt === today).length;
+    const cOver = all.filter(_isOverdue).length;
+    if (document.getElementById('taskCountPending'))    document.getElementById('taskCountPending').textContent = cPend;
+    if (document.getElementById('taskCountInProgress')) document.getElementById('taskCountInProgress').textContent = cProg;
+    if (document.getElementById('taskCountDoneToday'))  document.getElementById('taskCountDoneToday').textContent = cDone;
+    if (document.getElementById('taskCountOverdue'))    document.getElementById('taskCountOverdue').textContent = cOver;
+
+    const tbody = document.getElementById('tasksTableBody');
+    if (!tbody) { renderDashboardTasks(); return; }
+    if (!tasks.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No tasks match the filter</td></tr>'; renderPagination('tasks', 0, 0, 'renderTasks'); renderDashboardTasks(); return; }
+    const pg = paginate(tasks, 'tasks');
+    tbody.innerHTML = pg.items.map(t => {
+        const overdue = _isOverdue(t);
+        const rowCls  = (t.status === 'Done' ? 'task-row-done' : '') + (overdue ? ' task-row-overdue' : '');
+        const statusColor = TASK_STATUS_COLOR[t.status] || '#888';
+        const linked = t.linkedInvoiceNumber ? `INV ${esc(t.linkedInvoiceNumber)}` :
+                       t.linkedQuoteNumber  ? `QT ${esc(t.linkedQuoteNumber)}`   : '-';
+        const dueCell = t.dueDate
+            ? (overdue ? `<span style="color:#c62828;font-weight:600;">${t.dueDate} !</span>` : t.dueDate)
+            : '<span style="color:#bbb;">-</span>';
+        const noteSnip = t.notes ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${esc(t.notes.slice(0,80))}${t.notes.length>80?'...':''}</div>` : '';
+        return `<tr class="${rowCls}">
+            <td><input type="checkbox" ${t.status === 'Done' ? 'checked' : ''} onchange="toggleTaskDone('${t.id}')" title="Mark done"></td>
+            <td><div class="task-title">${esc(t.title)}</div>${noteSnip}</td>
+            <td>${esc(t.customerName) || '<span style="color:#bbb;">-</span>'}</td>
+            <td><span class="pri-badge pri-${t.priority||'Medium'}">${t.priority||'Medium'}</span></td>
+            <td><span class="status-badge" style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}66">${TASK_STATUS_LABEL[t.status]||t.status}</span></td>
+            <td>${dueCell}</td>
+            <td style="font-size:11px;">${linked}</td>
+            <td style="white-space:nowrap;">
+                <button class="btn-icon" onclick="cycleTaskStatus('${t.id}')" title="Advance status"><i class="fas fa-forward"></i></button>
+                <button class="btn-icon" onclick="editTask('${t.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                <button class="btn-icon" onclick="deleteTask('${t.id}')" title="Delete"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>`;
+    }).join('');
+    renderPagination('tasks', pg.totalPages, pg.total, 'renderTasks');
+    renderDashboardTasks();
+}
+
+function renderDashboardTasks() {
+    const wrap = document.getElementById('dashTasksList');
+    if (!wrap) return;
+    const all = appData.tasks || [];
+    let active = all.filter(t => t.status !== 'Done');
+    active.sort((a,b) => {
+        const pa = TASK_PRIORITY_RANK[a.priority] || 9;
+        const pb = TASK_PRIORITY_RANK[b.priority] || 9;
+        if (pa !== pb) return pa - pb;
+        const da = a.dueDate || '9999-99-99';
+        const db = b.dueDate || '9999-99-99';
+        return da.localeCompare(db);
+    });
+    const top = active.slice(0, 5);
+
+    const summaryEl = document.getElementById('dashTaskSummary');
+    if (summaryEl) {
+        const overdue = all.filter(_isOverdue).length;
+        summaryEl.textContent = `- ${active.length} active${overdue ? ', ' + overdue + ' overdue' : ''}`;
+    }
+
+    if (!top.length) {
+        wrap.innerHTML = '<div style="text-align:center;padding:18px;color:var(--text-secondary);font-size:13px;">All caught up! <a href="#" onclick="quickAddTask();return false;" style="color:var(--primary);">Add a task</a></div>';
+        return;
+    }
+    wrap.innerHTML = top.map(t => {
+        const overdue = _isOverdue(t);
+        const statusColor = TASK_STATUS_COLOR[t.status];
+        const customerStr = t.customerName ? esc(t.customerName) : '';
+        const dueStr = t.dueDate ? (customerStr ? ' . ' : '') + (overdue ? '<span style="color:#c62828;font-weight:600;">'+t.dueDate+' !</span>' : t.dueDate) : '';
+        return `<div class="dash-task-item">
+            <input type="checkbox" onchange="toggleTaskDone('${t.id}')" title="Mark done">
+            <div class="task-title" onclick="editTask('${t.id}')" style="cursor:pointer;">${esc(t.title)}</div>
+            <span class="pri-badge pri-${t.priority||'Medium'}">${t.priority||'Medium'}</span>
+            <span class="dash-task-meta">${customerStr}${dueStr}</span>
+            <span class="status-badge" style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}66;font-size:10px;padding:2px 8px;">${TASK_STATUS_LABEL[t.status]}</span>
+        </div>`;
+    }).join('');
+}
