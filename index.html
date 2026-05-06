@@ -342,7 +342,7 @@
             <section class="page" id="page-quotations">
                 <div class="page-header">
                     <h2>Quotations</h2>
-                    <button class="btn btn-primary" onclick="openModal('quotationModal')">
+                    <button class="btn btn-primary" onclick="resetQuoteForm();openModal('quotationModal')">
                         <i class="fas fa-plus"></i> New Quotation
                     </button>
                 </div>
@@ -406,7 +406,7 @@
                         <button class="btn btn-primary" onclick="resetInvoiceForm();openModal('invoiceModal')">
                             <i class="fas fa-plus"></i> New Invoice
                         </button>
-                        <button class="btn btn-secondary" onclick="openModal('cashMemoModal')">
+                        <button class="btn btn-secondary" onclick="resetCashMemoForm();openModal('cashMemoModal')">
                             <i class="fas fa-money-bill-wave"></i> Cash Memo
                         </button>
                     </div>
@@ -527,7 +527,7 @@
             <section class="page" id="page-purchases">
                 <div class="page-header">
                     <h2>Purchase Orders</h2>
-                    <button class="btn btn-primary" onclick="openModal('purchaseModal')">
+                    <button class="btn btn-primary" onclick="resetPOForm();openModal('purchaseModal')">
                         <i class="fas fa-plus"></i> New Purchase Order
                     </button>
                 </div>
@@ -644,7 +644,7 @@
                         <button class="btn btn-primary" onclick="openModal('journalModal')">
                             <i class="fas fa-plus"></i> Journal Entry
                         </button>
-                        <button class="btn btn-secondary" onclick="openModal('expenseModal')">
+                        <button class="btn btn-secondary" onclick="resetExpenseForm();openModal('expenseModal')">
                             <i class="fas fa-receipt"></i> Record Expense
                         </button>
                     </div>

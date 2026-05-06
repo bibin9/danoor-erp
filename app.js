@@ -604,10 +604,21 @@ function saveQuotation() {
 }
 
 function resetQuoteForm() {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const validStr = new Date(today.getTime() + 30 * 86400000).toISOString().split('T')[0];
     document.getElementById('quoteEditId').value = '';
     document.getElementById('quoteCustomer').value = '';
     document.getElementById('quoteSubject').value = '';
     document.getElementById('quoteStatus').value = 'Draft';
+    document.getElementById('quoteDate').value = todayStr;
+    document.getElementById('quoteValidUntil').value = validStr;
+    if (document.getElementById('quoteVatRate')) document.getElementById('quoteVatRate').value = '0';
+    if (document.getElementById('quoteTerms')) document.getElementById('quoteTerms').value = '';
+    if (document.getElementById('quoteNumber')) {
+        const s = appData.settings || {};
+        document.getElementById('quoteNumber').value = (s.quotePrefix || 'QT-') + (s.quoteNext || 1001);
+    }
     document.getElementById('quotationModalTitle').textContent = 'New Quotation';
     document.getElementById('quoteLineItemsBody').innerHTML = `<tr>
         <td><input type="text" class="input qt-desc" placeholder="Service description"></td>
@@ -1015,13 +1026,19 @@ function saveInvoice() {
 
 function resetInvoiceForm() {
     const s = appData.settings || {};
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const dueStr = new Date(today.getTime() + 30 * 86400000).toISOString().split('T')[0];
     document.getElementById('invEditId').value = '';
     document.getElementById('invNumber').value = (s.invPrefix || 'INV-') + (s.invNext || 1001);
+    document.getElementById('invDate').value = todayStr;
+    document.getElementById('invDueDate').value = dueStr;
     document.getElementById('invCustomer').value = '';
     document.getElementById('invTitle').value = '';
     document.getElementById('invStatus').value = 'Draft';
     document.getElementById('invNotes').value = '';
     document.getElementById('invVatRate').value = '0';
+    if (document.getElementById('invLinkedQuote')) document.getElementById('invLinkedQuote').value = '';
     document.getElementById('invoiceModalTitle').textContent = 'New Invoice';
     document.getElementById('invLineItemsBody').innerHTML = '<tr>' + getInvLineRowHtml('', 1, 0) + '</tr>';
     if (document.getElementById('invPaidAmount')) document.getElementById('invPaidAmount').value = '';
@@ -1204,11 +1221,19 @@ function savePurchaseOrder() {
 }
 
 function resetPOForm() {
+    const s = appData.settings || {};
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const delivStr = new Date(today.getTime() + 7 * 86400000).toISOString().split('T')[0];
     document.getElementById('poEditId').value = '';
+    document.getElementById('poDate').value = todayStr;
+    document.getElementById('poDeliveryDate').value = delivStr;
     document.getElementById('poSupplier').value = '';
     document.getElementById('poStatus').value = 'Draft';
     document.getElementById('poPayTerms').value = 'Net 30';
     document.getElementById('poNotes').value = '';
+    if (document.getElementById('poNumber')) document.getElementById('poNumber').value = (s.poPrefix || 'PO-') + (s.poNext || 1001);
+    if (document.getElementById('poVatRate')) document.getElementById('poVatRate').value = '0';
     document.getElementById('purchaseModalTitle').textContent = 'New Purchase Order';
     document.getElementById('poLineItemsBody').innerHTML = `<tr>
         <td><input type="text" class="input po-desc" placeholder="Item / service description"></td>
@@ -1543,10 +1568,14 @@ function deleteExpense(id) {
 }
 
 function resetExpenseForm() {
+    const todayStr = new Date().toISOString().split('T')[0];
     document.getElementById('expEditId').value = '';
+    document.getElementById('expDate').value = todayStr;
     document.getElementById('expDesc').value = '';
     document.getElementById('expAmount').value = 0;
     document.getElementById('expVatIncl').value = 'no';
+    if (document.getElementById('expSupplier')) document.getElementById('expSupplier').value = '';
+    if (document.getElementById('expCategory')) document.getElementById('expCategory').selectedIndex = 0;
     document.getElementById('expenseModalTitle').textContent = 'Record Expense';
 }
 
@@ -1601,12 +1630,15 @@ function deleteCashMemo(id) {
 }
 
 function resetCashMemoForm() {
+    const todayStr = new Date().toISOString().split('T')[0];
     document.getElementById('cmEditId').value = '';
+    document.getElementById('cmDate').value = todayStr;
     document.getElementById('cmReceipt').value = '';
     document.getElementById('cmCustomer').value = '';
     document.getElementById('cmDesc').value = '';
     document.getElementById('cmAmount').value = 0;
     document.getElementById('cmVatRate').value = '0';
+    if (document.getElementById('cmPayMode')) document.getElementById('cmPayMode').selectedIndex = 0;
     document.getElementById('cashMemoModalTitle').textContent = 'New Cash Memo';
 }
 
@@ -3441,7 +3473,7 @@ function quickAddTask() {
 function resetTaskForm() {
     document.getElementById('taskEditId').value = '';
     document.getElementById('taskTitle').value = '';
-    document.getElementById('taskDueDate').value = '';
+    document.getElementById('taskDueDate').value = _todayISO();
     document.getElementById('taskPriority').value = 'Medium';
     document.getElementById('taskStatus').value = 'Pending';
     document.getElementById('taskNotes').value = '';
