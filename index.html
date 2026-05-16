@@ -1474,6 +1474,7 @@
                 <div class="tabs">
                     <button class="tab active" data-tab="uaeLicAuth"><i class="fas fa-building-flag"></i> Licensing Authorities</button>
                     <button class="tab" data-tab="uaePro"><i class="fas fa-id-card"></i> PRO Services / Government Portals</button>
+                    <button class="tab" data-tab="uaeCompare"><i class="fas fa-scale-balanced"></i> Compare Free Zones</button>
                 </div>
 
                 <!-- Licensing Authorities Tab -->
@@ -1526,6 +1527,37 @@
                         </select>
                     </div>
                     <div id="uaeProGrid" class="ref-grid"></div>
+                </div>
+
+                <!-- Compare Free Zones Tab -->
+                <div class="tab-content" id="tab-uaeCompare">
+                    <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#2e7d32;">
+                        <i class="fas fa-circle-info"></i> Tick <strong>2 to 4 authorities</strong> below to see them side-by-side. Filter by emirate or type first to narrow the list.
+                    </div>
+                    <div class="filter-bar">
+                        <input type="text" id="uaeCmpSearch" class="input" placeholder="Filter the list..." oninput="renderCompareList()">
+                        <select id="uaeCmpEmirate" class="input" onchange="renderCompareList()">
+                            <option value="">All Emirates</option>
+                            <option value="Dubai">Dubai</option>
+                            <option value="Abu Dhabi">Abu Dhabi</option>
+                            <option value="Sharjah">Sharjah</option>
+                            <option value="Ajman">Ajman</option>
+                            <option value="Ras Al Khaimah">Ras Al Khaimah</option>
+                            <option value="Fujairah">Fujairah</option>
+                            <option value="Umm Al Quwain">Umm Al Quwain</option>
+                        </select>
+                        <select id="uaeCmpType" class="input" onchange="renderCompareList()">
+                            <option value="">All Types</option>
+                            <option value="Mainland">Mainland (DED)</option>
+                            <option value="Free Zone">Free Zone</option>
+                            <option value="Offshore">Offshore</option>
+                            <option value="Financial">Financial Centre</option>
+                        </select>
+                        <button class="btn btn-secondary btn-sm" onclick="clearCompareSelection()"><i class="fas fa-times"></i> Clear All</button>
+                    </div>
+                    <div id="uaeCmpSelectedChips" style="margin:8px 0;display:flex;flex-wrap:wrap;gap:6px;"></div>
+                    <div id="uaeCmpList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-bottom:18px;"></div>
+                    <div id="uaeCmpResult"></div>
                 </div>
 
                 <style>
@@ -2839,6 +2871,16 @@
     .calc-fab:hover{background:#1d4e9a;transform:scale(1.07);}
     .task-fab{position:fixed;bottom:20px;right:84px;z-index:9998;width:52px;height:52px;border-radius:50%;background:#27ae60;color:#fff;border:none;cursor:pointer;box-shadow:0 4px 18px rgba(39,174,96,.45);font-size:20px;display:flex;align-items:center;justify-content:center;transition:.2s;}
     .task-fab:hover{background:#1e8449;transform:scale(1.07);}
+    /* Calculator mode tabs */
+    .calc-mode-tabs{display:flex;background:#eef2f9;border-bottom:1px solid #d8dde6;}
+    .calc-mode-tab{flex:1;padding:9px 12px;border:none;background:transparent;font-size:12px;font-weight:600;color:#5a6371;cursor:pointer;border-bottom:2px solid transparent;transition:.15s;}
+    .calc-mode-tab.active{color:#2b6cb5;border-bottom-color:#2b6cb5;background:#fff;}
+    .calc-mode-tab:hover{color:#2b6cb5;}
+    /* Markup mode quick buttons */
+    .mk-quick{background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;padding:5px 9px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;transition:.15s;}
+    .mk-quick:hover{background:#1565c0;color:#fff;border-color:#1565c0;}
+    .mk-action{flex:1;background:#2b6cb5;color:#fff;border:none;padding:9px 8px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;gap:4px;}
+    .mk-action:hover{background:#1d4e9a;}
     /* Priority/status badges for tasks */
     .pri-Urgent{background:#fce4ec;color:#c62828;border:1px solid #f8bbd0;}
     .pri-High{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;}
@@ -2859,6 +2901,13 @@
             <span><i class="fas fa-calculator"></i>&nbsp; Calculator</span>
             <button onclick="toggleCalc()" title="Close"><i class="fas fa-xmark"></i></button>
         </div>
+        <!-- Mode tabs -->
+        <div class="calc-mode-tabs">
+            <button class="calc-mode-tab active" id="calcModeBasic" onclick="setCalcMode('basic')">Basic</button>
+            <button class="calc-mode-tab" id="calcModeMarkup" onclick="setCalcMode('markup')">Markup</button>
+        </div>
+        <!-- Basic mode -->
+        <div id="calcBasicMode">
         <div class="calc-screen">
             <div class="calc-expr" id="calcExpr"></div>
             <div class="calc-display" id="calcDisplay">0</div>
@@ -2891,6 +2940,48 @@
         <div class="calc-footer">
             <button onclick="calcFn('back')"><i class="fas fa-delete-left"></i> Back</button>
             <button onclick="calcCopy()" id="calcCopyBtn"><i class="fas fa-copy"></i> Copy</button>
+        </div>
+        </div><!-- /basic mode -->
+
+        <!-- Markup mode -->
+        <div id="calcMarkupMode" style="display:none;padding:14px 16px;background:#fff;">
+            <div style="margin-bottom:10px;">
+                <label style="font-size:11px;color:#555;font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Supplier Cost (AED)</label>
+                <input type="number" id="mkCost" class="input" placeholder="0.00" step="0.01" min="0" oninput="calcMarkup()" style="margin-top:4px;font-size:16px;">
+            </div>
+            <div style="margin-bottom:6px;">
+                <label style="font-size:11px;color:#555;font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Margin %</label>
+                <input type="number" id="mkMargin" class="input" placeholder="0" step="0.1" min="0" oninput="calcMarkup('pct')" style="margin-top:4px;font-size:16px;">
+            </div>
+            <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">
+                <button class="mk-quick" onclick="setMkMargin(10)">10%</button>
+                <button class="mk-quick" onclick="setMkMargin(15)">15%</button>
+                <button class="mk-quick" onclick="setMkMargin(20)">20%</button>
+                <button class="mk-quick" onclick="setMkMargin(25)">25%</button>
+                <button class="mk-quick" onclick="setMkMargin(30)">30%</button>
+                <button class="mk-quick" onclick="setMkMargin(50)">50%</button>
+                <button class="mk-quick" onclick="setMkMargin(100)">100%</button>
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="font-size:11px;color:#555;font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Markup Amount (AED)</label>
+                <input type="number" id="mkAmount" class="input" placeholder="0.00" step="0.01" min="0" oninput="calcMarkup('amt')" style="margin-top:4px;font-size:16px;">
+            </div>
+            <div style="background:#f5f7fa;border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#555;padding:3px 0;">
+                    <span>Customer Price</span><strong id="mkPriceExVat" style="color:#1565c0;font-size:16px;">AED 0.00</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#888;padding:3px 0;border-top:1px dashed #ddd;">
+                    <span>VAT (5%)</span><span id="mkVat">AED 0.00</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#1a1a2e;padding:5px 0 0 0;border-top:2px solid #2b6cb5;font-weight:700;">
+                    <span>Total Inc. VAT</span><span id="mkTotalIncVat" style="color:#27ae60;font-size:18px;">AED 0.00</span>
+                </div>
+            </div>
+            <div style="display:flex;gap:6px;">
+                <button class="mk-action" onclick="copyMarkupValue('price')" id="mkCopyPrice"><i class="fas fa-copy"></i> Copy Price</button>
+                <button class="mk-action" onclick="copyMarkupValue('total')" id="mkCopyTotal"><i class="fas fa-copy"></i> Copy w/ VAT</button>
+                <button class="mk-action" onclick="resetMarkup()" style="background:#fce4ec;color:#c62828;"><i class="fas fa-eraser"></i> Reset</button>
+            </div>
         </div>
     </div>
     <button class="calc-fab" id="calcFAB" onclick="toggleCalc()" title="Calculator">

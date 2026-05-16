@@ -4268,4 +4268,199 @@ function renderUaeReference() {
             ? list.map(_renderProCard).join('')
             : '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-secondary);">No matching services found.</div>';
     }
+    // Compare list defaults
+    renderCompareList();
+}
+
+// ==================== COMPARE FREE ZONES (UAE Reference, 3rd tab) ====================
+const _cmpSelected = new Set(); // indexes into UAE_LICENSING_AUTHORITIES
+
+function toggleCompareSelection(idx) {
+    if (_cmpSelected.has(idx)) {
+        _cmpSelected.delete(idx);
+    } else {
+        if (_cmpSelected.size >= 4) {
+            showToast('You can compare up to 4 authorities at a time', 'error');
+            return;
+        }
+        _cmpSelected.add(idx);
+    }
+    renderCompareList();
+}
+
+function clearCompareSelection() {
+    _cmpSelected.clear();
+    renderCompareList();
+}
+
+function renderCompareList() {
+    const listEl   = document.getElementById('uaeCmpList');
+    const chipsEl  = document.getElementById('uaeCmpSelectedChips');
+    const resultEl = document.getElementById('uaeCmpResult');
+    if (!listEl) return;
+
+    const search   = (document.getElementById('uaeCmpSearch')?.value || '').toLowerCase();
+    const emirate  = document.getElementById('uaeCmpEmirate')?.value || '';
+    const typeFlt  = document.getElementById('uaeCmpType')?.value || '';
+
+    // Selected chips
+    const selected = [..._cmpSelected].map(i => ({ i, a: UAE_LICENSING_AUTHORITIES[i] })).filter(x => x.a);
+    chipsEl.innerHTML = selected.length
+        ? '<span style="font-size:12px;color:#555;margin-right:4px;align-self:center;">Selected (' + selected.length + '/4):</span>' +
+          selected.map(({i, a}) =>
+            '<span style="background:#2b6cb5;color:#fff;padding:4px 10px;border-radius:12px;font-size:12px;display:inline-flex;align-items:center;gap:6px;">' +
+                esc(a.short || a.name) +
+                '<button onclick="toggleCompareSelection(' + i + ')" style="background:none;border:none;color:#fff;cursor:pointer;padding:0;font-size:13px;">&times;</button>' +
+            '</span>'
+          ).join('')
+        : '<span style="font-size:12px;color:#888;">No authorities selected yet.</span>';
+
+    // List with checkboxes
+    let list = UAE_LICENSING_AUTHORITIES.map((a, i) => ({ a, i }));
+    if (search)  list = list.filter(x => (x.a.name + ' ' + x.a.short + ' ' + x.a.sector + ' ' + x.a.emirate + ' ' + (x.a.notes||'')).toLowerCase().includes(search));
+    if (emirate) list = list.filter(x => x.a.emirate === emirate);
+    if (typeFlt) list = list.filter(x => x.a.type === typeFlt);
+
+    listEl.innerHTML = list.length
+        ? list.map(({a, i}) => {
+            const checked = _cmpSelected.has(i);
+            return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:' + (checked?'#e3f2fd':'#fff') + ';border:1px solid ' + (checked?'#2b6cb5':'#e0e0e0') + ';border-radius:6px;cursor:pointer;transition:.15s;">' +
+                '<input type="checkbox" ' + (checked?'checked':'') + ' onchange="toggleCompareSelection(' + i + ')" style="margin:0;">' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-size:13px;font-weight:600;color:#1a1a2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(a.short || a.name) + '</div>' +
+                    '<div style="font-size:11px;color:#888;">' + esc(a.emirate) + ' &middot; ' + esc(a.type) + '</div>' +
+                '</div>' +
+            '</label>';
+          }).join('')
+        : '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#888;font-size:13px;">No authorities match this filter.</div>';
+
+    // Comparison result
+    if (selected.length < 2) {
+        resultEl.innerHTML = selected.length === 1
+            ? '<div style="text-align:center;padding:22px;color:#888;font-size:13px;background:#f5f7fa;border-radius:8px;">Select at least one more to compare.</div>'
+            : '';
+        return;
+    }
+
+    // Calculate price extremes
+    const prices = selected.map(s => s.a.priceMin);
+    const cheapest = Math.min(...prices);
+    const dearest  = Math.max(...prices);
+
+    const cellH = (label) => '<th style="padding:10px 12px;background:#2b6cb5;color:#fff;font-size:12px;font-weight:600;text-align:left;border:1px solid #1d4e9a;">' + label + '</th>';
+    const cellD = (val, attr) => '<td style="padding:10px 12px;font-size:13px;border:1px solid #ddd;vertical-align:top;' + (attr||'') + '">' + val + '</td>';
+
+    const header = '<tr>' + cellH('Attribute') + selected.map(s => cellH(esc(s.a.short || s.a.name))).join('') + '</tr>';
+
+    const rows = [
+        { label: 'Full Name',    fn: (a) => esc(a.name) },
+        { label: 'Emirate',      fn: (a) => esc(a.emirate) },
+        { label: 'Type',         fn: (a) => '<span style="background:#f0f4ff;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + esc(a.type) + '</span>' },
+        { label: 'Sector',       fn: (a) => esc(a.sector) },
+        { label: 'Price (Min)',  fn: (a) => {
+            const isMin = a.priceMin === cheapest;
+            const isMax = a.priceMin === dearest;
+            const colour = isMin ? '#1b5e20' : isMax ? '#c62828' : '#1a1a2e';
+            const tag = isMin && selected.length > 1 ? ' <span style="font-size:9px;background:#27ae60;color:#fff;padding:1px 5px;border-radius:6px;">CHEAPEST</span>' : '';
+            return '<strong style="color:' + colour + ';">AED ' + a.priceMin.toLocaleString() + '</strong>' + tag;
+        }},
+        { label: 'Price (Max)',  fn: (a) => 'AED ' + a.priceMax.toLocaleString() },
+        { label: 'Website',      fn: (a) => '<a href="' + a.website + '" target="_blank" style="color:#2b6cb5;font-size:11px;word-break:break-all;">' + a.website.replace(/^https?:\/\//, '') + '</a>' },
+        { label: 'Phone',        fn: (a) => a.phone ? '<a href="tel:' + a.phone.replace(/[^+0-9]/g,'') + '" style="color:#27ae60;">' + esc(a.phone) + '</a>' : '<span style="color:#bbb;">—</span>' },
+        { label: 'Email',        fn: (a) => a.email ? '<a href="mailto:' + a.email + '" style="color:#7e8794;font-size:11px;">' + esc(a.email) + '</a>' : '<span style="color:#bbb;">—</span>' },
+        { label: 'Notes',        fn: (a) => '<span style="font-size:11px;color:#666;">' + esc(a.notes || '—') + '</span>' },
+    ];
+
+    const bodyRows = rows.map(row => {
+        return '<tr><td style="padding:10px 12px;background:#f5f7fa;font-weight:600;font-size:12px;border:1px solid #ddd;color:#555;">' + row.label + '</td>' +
+            selected.map(s => cellD(row.fn(s.a))).join('') + '</tr>';
+    }).join('');
+
+    resultEl.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+            '<h4 style="margin:0;">Comparison (' + selected.length + ' authorities)</h4>' +
+            '<button class="btn btn-secondary btn-sm" onclick="window.print()"><i class="fas fa-print"></i> Print</button>' +
+        '</div>' +
+        '<div style="overflow-x:auto;background:#fff;border-radius:8px;border:1px solid #ddd;">' +
+            '<table style="width:100%;border-collapse:collapse;">' +
+                '<thead>' + header + '</thead>' +
+                '<tbody>' + bodyRows + '</tbody>' +
+            '</table>' +
+        '</div>';
+}
+
+// ==================== CALCULATOR — MARKUP MODE ====================
+function setCalcMode(mode) {
+    const basicTab    = document.getElementById('calcModeBasic');
+    const markupTab   = document.getElementById('calcModeMarkup');
+    const basicView   = document.getElementById('calcBasicMode');
+    const markupView  = document.getElementById('calcMarkupMode');
+    if (!basicTab || !markupTab || !basicView || !markupView) return;
+    if (mode === 'markup') {
+        basicTab.classList.remove('active');
+        markupTab.classList.add('active');
+        basicView.style.display = 'none';
+        markupView.style.display = 'block';
+        setTimeout(() => { const c = document.getElementById('mkCost'); if (c) c.focus(); }, 100);
+    } else {
+        markupTab.classList.remove('active');
+        basicTab.classList.add('active');
+        markupView.style.display = 'none';
+        basicView.style.display = 'block';
+    }
+}
+
+let _mkLastInput = 'pct'; // 'pct' or 'amt' — which was last edited
+function calcMarkup(source) {
+    if (source) _mkLastInput = source;
+    const costEl   = document.getElementById('mkCost');
+    const pctEl    = document.getElementById('mkMargin');
+    const amtEl    = document.getElementById('mkAmount');
+    if (!costEl || !pctEl || !amtEl) return;
+    const cost = parseFloat(costEl.value) || 0;
+    let pct, amt;
+    if (_mkLastInput === 'amt') {
+        amt = parseFloat(amtEl.value) || 0;
+        pct = cost > 0 ? (amt / cost * 100) : 0;
+        pctEl.value = pct > 0 ? pct.toFixed(2) : '';
+    } else {
+        pct = parseFloat(pctEl.value) || 0;
+        amt = cost * pct / 100;
+        amtEl.value = amt > 0 ? amt.toFixed(2) : '';
+    }
+    const price    = cost + amt;
+    const vat      = price * 0.05;
+    const totalInc = price + vat;
+    document.getElementById('mkPriceExVat').textContent  = 'AED ' + price.toFixed(2);
+    document.getElementById('mkVat').textContent         = 'AED ' + vat.toFixed(2);
+    document.getElementById('mkTotalIncVat').textContent = 'AED ' + totalInc.toFixed(2);
+}
+
+function setMkMargin(pct) {
+    const el = document.getElementById('mkMargin');
+    if (!el) return;
+    el.value = pct;
+    calcMarkup('pct');
+}
+
+function copyMarkupValue(which) {
+    const el = which === 'total' ? document.getElementById('mkTotalIncVat') : document.getElementById('mkPriceExVat');
+    if (!el) return;
+    const txt = el.textContent.replace('AED ', '').trim();
+    navigator.clipboard.writeText(txt).then(() => {
+        const btn = document.getElementById(which === 'total' ? 'mkCopyTotal' : 'mkCopyPrice');
+        if (!btn) return;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        setTimeout(() => { btn.innerHTML = orig; }, 1500);
+    }).catch(() => {
+        showToast('Value: ' + txt, 'success');
+    });
+}
+
+function resetMarkup() {
+    ['mkCost','mkMargin','mkAmount'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+    document.getElementById('mkPriceExVat').textContent  = 'AED 0.00';
+    document.getElementById('mkVat').textContent         = 'AED 0.00';
+    document.getElementById('mkTotalIncVat').textContent = 'AED 0.00';
 }
