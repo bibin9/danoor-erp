@@ -993,6 +993,7 @@
                     <button class="tab" data-tab="rptAging">Receivables Aging</button>
                     <button class="tab" data-tab="rptLoans">Loans & Liabilities</button>
                     <button class="tab" data-tab="rptServices"><i class="fas fa-id-card"></i> Service Statistics</button>
+                    <button class="tab" data-tab="rptCT"><i class="fas fa-landmark"></i> Corporate Tax</button>
                 </div>
 
                 <!-- P&L Report with Chart -->
@@ -1203,6 +1204,127 @@
                             <thead><tr><th>Date</th><th>Invoice</th><th>Customer</th><th>Service Description</th><th>Service Type</th><th>Qty</th><th>Revenue</th></tr></thead>
                             <tbody id="rptSvcDetailBody"></tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- ==================== CORPORATE TAX TAB ==================== -->
+                <div class="tab-content" id="tab-rptCT">
+                    <!-- Disclaimer banner -->
+                    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:14px 18px;margin-bottom:16px;color:#7a5a00;font-size:13px;line-height:1.55;">
+                        <strong>⚠ Draft for review only.</strong> This report is generated from your ERP data and is intended as a working draft to share with a UAE-registered Tax Agent. It is <strong>not</strong> an FTA-ready submission. Please verify every figure before filing on EmaraTax (<a href="https://eservices.tax.gov.ae" target="_blank" style="color:#7a5a00;text-decoration:underline;">eservices.tax.gov.ae</a>).
+                    </div>
+
+                    <div class="report-filter-bar">
+                        <div class="form-group">
+                            <label>Tax Period Start</label>
+                            <input type="date" id="ctFromDate" class="input" value="2025-05-01" onchange="renderCorporateTax()">
+                        </div>
+                        <div class="form-group">
+                            <label>Tax Period End</label>
+                            <input type="date" id="ctToDate" class="input" value="2025-12-31" onchange="renderCorporateTax()">
+                        </div>
+                        <div class="form-group">
+                            <label>Basis</label>
+                            <select id="ctBasis" class="input" onchange="renderCorporateTax()">
+                                <option value="accrual" selected>Accrual (default for CT)</option>
+                                <option value="cash">Cash</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="display:flex;align-items:end;gap:6px;">
+                            <button class="btn btn-secondary" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                            <button class="btn btn-primary" onclick="exportCTReportPDF()"><i class="fas fa-file-pdf"></i> Export PDF</button>
+                        </div>
+                    </div>
+
+                    <!-- KPI summary -->
+                    <div class="card report-summary">
+                        <div class="report-kpi-row">
+                            <div class="report-kpi" style="border-top:3px solid #27ae60"><div class="report-kpi-label">Total Revenue</div><div class="report-kpi-value" id="ctRevenue" style="color:#27ae60">AED 0.00</div></div>
+                            <div class="report-kpi" style="border-top:3px solid #e74c3c"><div class="report-kpi-label">Total Expenses</div><div class="report-kpi-value" id="ctExpenses" style="color:#e74c3c">AED 0.00</div></div>
+                            <div class="report-kpi" style="border-top:3px solid #2b6cb5"><div class="report-kpi-label">Net Accounting Profit</div><div class="report-kpi-value" id="ctNetProfit" style="color:#2b6cb5">AED 0.00</div></div>
+                            <div class="report-kpi highlight" style="border-top:3px solid #f5a623"><div class="report-kpi-label">CT Liability (with SBR)</div><div class="report-kpi-value" id="ctLiability" style="color:#f5a623">AED 0.00</div></div>
+                        </div>
+                    </div>
+
+                    <!-- SBR eligibility card -->
+                    <div class="card" id="ctSbrCard">
+                        <h4 style="margin-bottom:10px;">📌 Small Business Relief (SBR) — Ministerial Decision 73/2023</h4>
+                        <div id="ctSbrStatus" style="padding:14px;border-radius:8px;font-size:14px;line-height:1.7;"></div>
+                    </div>
+
+                    <!-- Two-scenario comparison -->
+                    <div class="card">
+                        <h4>Corporate Tax Computation — Both Scenarios</h4>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th style="text-align:right;">With SBR Elected (recommended)</th>
+                                    <th style="text-align:right;">Without SBR (standard)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ctComputationBody"></tbody>
+                        </table>
+                        <p style="font-size:12px;color:var(--text-secondary);margin-top:10px;">
+                            <strong>Note:</strong> SBR is available only if your revenue is ≤ AED 3,000,000 for this period <em>and</em> all previous tax periods ending on or before 31 December 2026. SBR must be elected on the return — it is not automatic.
+                        </p>
+                    </div>
+
+                    <!-- Revenue breakdown -->
+                    <div class="card">
+                        <h4>Revenue Breakdown</h4>
+                        <table class="data-table">
+                            <thead><tr><th>Source</th><th style="text-align:right;">Amount (AED)</th><th style="text-align:right;">% of Revenue</th></tr></thead>
+                            <tbody id="ctRevenueBody"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Expense breakdown -->
+                    <div class="card">
+                        <h4>Expense Breakdown (for Disclosure Schedule)</h4>
+                        <table class="data-table">
+                            <thead><tr><th>Category</th><th style="text-align:right;">Amount (AED)</th><th style="text-align:right;">% of Expenses</th><th>CT Treatment</th></tr></thead>
+                            <tbody id="ctExpenseBody"></tbody>
+                        </table>
+                        <p style="font-size:12px;color:var(--text-secondary);margin-top:10px;">
+                            <strong>Common CT adjustments:</strong> Entertainment expenses are <strong>50% disallowed</strong> (Art. 32). Fines &amp; penalties are <strong>100% disallowed</strong>. Owner's drawings, bribes and unauthorised donations are <strong>fully disallowed</strong>. Related-party transactions must be at arm's length. Please review each category with your tax agent.
+                        </p>
+                    </div>
+
+                    <!-- Filing checklist -->
+                    <div class="card">
+                        <h4>📝 Filing Checklist — EmaraTax</h4>
+                        <ol style="line-height:1.9;font-size:14px;padding-left:22px;">
+                            <li><strong>Confirm CT registration</strong> on EmaraTax — you should have a CT TRN beginning with the 100 series.</li>
+                            <li>Have these documents ready:
+                                <ul style="margin:6px 0 0 12px;">
+                                    <li>Trade Licence (latest)</li>
+                                    <li>Memorandum / Articles of Association</li>
+                                    <li>Bank statements for the tax period</li>
+                                    <li>This Corporate Tax Report (export PDF)</li>
+                                    <li>Invoice register + Expense register (export from ERP)</li>
+                                </ul>
+                            </li>
+                            <li>Log in to <a href="https://eservices.tax.gov.ae" target="_blank">eservices.tax.gov.ae</a> → Corporate Tax → File Return.</li>
+                            <li>Enter Tax Period: <strong>1 May 2025 to 31 December 2025</strong>.</li>
+                            <li><strong>Tick the "Small Business Relief" election box</strong> (this is the key step that makes your CT liability NIL).</li>
+                            <li>Enter revenue figure as shown in this report.</li>
+                            <li>Submit. Filing deadline: <strong>30 September 2026</strong>.</li>
+                            <li>Save the FTA acknowledgement PDF in your records (keep for 7 years).</li>
+                        </ol>
+                    </div>
+
+                    <!-- Footer notes -->
+                    <div class="card" style="background:#f5f7fa;">
+                        <h4>Methodology &amp; assumptions used in this draft</h4>
+                        <ul style="font-size:13px;line-height:1.7;padding-left:20px;">
+                            <li><strong>Tax period:</strong> <span id="ctMethPeriod">1 May 2025 – 31 December 2025</span> (first tax period since incorporation).</li>
+                            <li><strong>Revenue basis (accrual):</strong> includes all non-cancelled invoices issued in the period + all cash memos issued in the period (net of VAT).</li>
+                            <li><strong>Revenue basis (cash):</strong> includes invoice payments received in the period + cash memos.</li>
+                            <li><strong>Expenses:</strong> includes recorded expenses + paid purchase orders + payroll runs falling within the period (net of recoverable VAT).</li>
+                            <li><strong>Adjustments not auto-applied:</strong> entertainment 50% disallowance, fines/penalties, related-party adjustments. Apply manually with your tax agent.</li>
+                            <li><strong>Standard CT rate:</strong> 0% up to AED 375,000 taxable income, 9% above. (Federal Decree-Law 47/2022, Art. 3.)</li>
+                        </ul>
                     </div>
                 </div>
             </section>

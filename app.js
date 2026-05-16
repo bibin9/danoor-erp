@@ -2894,6 +2894,7 @@ function renderAllReports() {
     renderAgingReport();
     renderLoansReport();
     renderServiceStats();
+    if (typeof renderCorporateTax === 'function') renderCorporateTax();
 }
 
 // Chart instance storage
@@ -3706,4 +3707,216 @@ function renderDashboardTasks() {
             <span class="status-badge" style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}66;font-size:10px;padding:2px 8px;">${TASK_STATUS_LABEL[t.status]}</span>
         </div>`;
     }).join('');
+}
+
+// ==================== CORPORATE TAX REPORT (UAE FTA) ====================
+// Constants per Federal Decree-Law 47 of 2022 + Ministerial Decision 73 of 2023
+const CT_RATE                  = 0.09;
+const CT_FREE_THRESHOLD        = 375000;
+const CT_SBR_REVENUE_THRESHOLD = 3000000;
+
+function _ctInRange(dateStr, from, to) {
+    if (!dateStr) return false;
+    if (from && dateStr < from) return false;
+    if (to   && dateStr > to)   return false;
+    return true;
+}
+
+function computeCorporateTax(fromDate, toDate, basis) {
+    const invoices  = (appData.invoices  || []).filter(i => i.status !== 'Cancelled');
+    const cashMemos = appData.cashMemos  || [];
+    const expenses  = appData.expenses   || [];
+    const purchases = (appData.purchases || []).filter(p => p.status !== 'Cancelled');
+    const payrolls  = appData.payrollRuns|| [];
+
+    let invRevenue = 0;
+    if (basis === 'cash') {
+        invoices.forEach(i => {
+            if (!_ctInRange(i.date, fromDate, toDate)) return;
+            invRevenue += (i.status === 'Paid') ? (i.subtotal || 0) : (invPaidAmount(i) / (1 + (i.vatRate||0))) || 0;
+        });
+    } else {
+        invoices.forEach(i => {
+            if (!_ctInRange(i.date, fromDate, toDate)) return;
+            invRevenue += (i.subtotal || 0);
+        });
+    }
+
+    let memoRevenue = 0;
+    cashMemos.forEach(m => {
+        if (!_ctInRange(m.date, fromDate, toDate)) return;
+        memoRevenue += (m.amount || m.total || 0);
+    });
+    const totalRevenue = invRevenue + memoRevenue;
+
+    const expByCategory = {};
+    let totalExpenses = 0;
+    expenses.forEach(e => {
+        if (!_ctInRange(e.date, fromDate, toDate)) return;
+        const cat = e.category || 'Uncategorised';
+        const amt = e.amount || 0;
+        expByCategory[cat] = (expByCategory[cat] || 0) + amt;
+        totalExpenses += amt;
+    });
+
+    let purchaseExp = 0;
+    purchases.forEach(p => {
+        if (!_ctInRange(p.date, fromDate, toDate)) return;
+        if (basis === 'cash' && p.status !== 'Paid') return;
+        purchaseExp += (p.subtotal || 0);
+    });
+    if (purchaseExp > 0) {
+        expByCategory['Purchases / Cost of Goods'] = purchaseExp;
+        totalExpenses += purchaseExp;
+    }
+
+    let payrollExp = 0;
+    payrolls.forEach(pr => {
+        if (!_ctInRange(pr.date || pr.month, fromDate, toDate)) return;
+        payrollExp += (pr.totalGross || pr.totalNet || 0);
+    });
+    if (payrollExp > 0) {
+        expByCategory['Salaries & Wages'] = (expByCategory['Salaries & Wages'] || 0) + payrollExp;
+        totalExpenses += payrollExp;
+    }
+
+    const netProfit = totalRevenue - totalExpenses;
+    const sbrEligible = totalRevenue <= CT_SBR_REVENUE_THRESHOLD;
+    const taxableIncome = Math.max(0, netProfit);
+    const ctTaxableAboveThreshold = Math.max(0, taxableIncome - CT_FREE_THRESHOLD);
+    const ctWithoutSBR = ctTaxableAboveThreshold * CT_RATE;
+    const ctWithSBR = sbrEligible ? 0 : ctWithoutSBR;
+
+    return {
+        invRevenue, memoRevenue, totalRevenue,
+        expByCategory, totalExpenses,
+        netProfit, taxableIncome,
+        sbrEligible, ctWithoutSBR, ctWithSBR,
+        ctTaxableAboveThreshold
+    };
+}
+
+function renderCorporateTax() {
+    const fromDate = document.getElementById('ctFromDate')?.value || '2025-05-01';
+    const toDate   = document.getElementById('ctToDate')?.value   || '2025-12-31';
+    const basis    = document.getElementById('ctBasis')?.value    || 'accrual';
+    const r = computeCorporateTax(fromDate, toDate, basis);
+
+    if (document.getElementById('ctRevenue'))   document.getElementById('ctRevenue').textContent   = fmt(r.totalRevenue);
+    if (document.getElementById('ctExpenses'))  document.getElementById('ctExpenses').textContent  = fmt(r.totalExpenses);
+    if (document.getElementById('ctNetProfit')) document.getElementById('ctNetProfit').textContent = fmt(r.netProfit);
+    if (document.getElementById('ctLiability')) document.getElementById('ctLiability').textContent = fmt(r.ctWithSBR);
+
+    const sbrStatus = document.getElementById('ctSbrStatus');
+    if (sbrStatus) {
+        if (r.sbrEligible) {
+            sbrStatus.style.background = '#e8f5e9';
+            sbrStatus.style.color = '#2e7d32';
+            sbrStatus.style.border = '1px solid #a5d6a7';
+            sbrStatus.innerHTML =
+                '<div style="font-size:18px;font-weight:600;margin-bottom:6px;">✅ Eligible for Small Business Relief</div>' +
+                '<div>Your revenue of <strong>' + fmt(r.totalRevenue) + '</strong> is below the AED 3,000,000 threshold.</div>' +
+                '<div style="margin-top:8px;">By electing SBR on your return, your taxable income is treated as <strong>NIL</strong> and your Corporate Tax liability is <strong>AED 0.00</strong>.</div>' +
+                '<div style="margin-top:8px;color:#1b5e20;"><strong>Action:</strong> On the EmaraTax return, tick the "Small Business Relief" election box.</div>';
+        } else {
+            sbrStatus.style.background = '#fff3e0';
+            sbrStatus.style.color = '#bf360c';
+            sbrStatus.style.border = '1px solid #ffab91';
+            sbrStatus.innerHTML =
+                '<div style="font-size:18px;font-weight:600;margin-bottom:6px;">❌ Not Eligible for Small Business Relief</div>' +
+                '<div>Your revenue of <strong>' + fmt(r.totalRevenue) + '</strong> exceeds the AED 3,000,000 threshold.</div>' +
+                '<div style="margin-top:8px;">Standard CT computation applies. Estimated liability: <strong>' + fmt(r.ctWithoutSBR) + '</strong>.</div>';
+        }
+    }
+
+    const compBody = document.getElementById('ctComputationBody');
+    if (compBody) {
+        compBody.innerHTML =
+            '<tr><td>Total Revenue (excl. VAT)</td><td style="text-align:right;">' + fmt(r.totalRevenue) + '</td><td style="text-align:right;">' + fmt(r.totalRevenue) + '</td></tr>' +
+            '<tr><td>Total Expenses</td><td style="text-align:right;">(' + fmt(r.totalExpenses) + ')</td><td style="text-align:right;">(' + fmt(r.totalExpenses) + ')</td></tr>' +
+            '<tr><td><strong>Net Accounting Profit</strong></td><td style="text-align:right;"><strong>' + fmt(r.netProfit) + '</strong></td><td style="text-align:right;"><strong>' + fmt(r.netProfit) + '</strong></td></tr>' +
+            '<tr><td>Adjustments (entertainment, fines, etc.)</td><td style="text-align:right;color:#888;">Apply manually</td><td style="text-align:right;color:#888;">Apply manually</td></tr>' +
+            '<tr><td><strong>Taxable Income</strong></td><td style="text-align:right;"><strong>' + (r.sbrEligible ? 'NIL (SBR elected)' : fmt(r.taxableIncome)) + '</strong></td><td style="text-align:right;"><strong>' + fmt(r.taxableIncome) + '</strong></td></tr>' +
+            '<tr><td>Less: 0% threshold (AED 375,000)</td><td style="text-align:right;">—</td><td style="text-align:right;">(' + fmt(Math.min(r.taxableIncome, CT_FREE_THRESHOLD)) + ')</td></tr>' +
+            '<tr><td>Amount taxed at 9%</td><td style="text-align:right;">—</td><td style="text-align:right;">' + fmt(r.ctTaxableAboveThreshold) + '</td></tr>' +
+            '<tr style="background:#fff8e1;"><td><strong>Corporate Tax Liability</strong></td><td style="text-align:right;font-size:16px;color:#27ae60;"><strong>AED 0.00</strong></td><td style="text-align:right;font-size:16px;color:#e74c3c;"><strong>' + fmt(r.ctWithoutSBR) + '</strong></td></tr>';
+    }
+
+    const revBody = document.getElementById('ctRevenueBody');
+    if (revBody) {
+        const pct = (v) => r.totalRevenue > 0 ? (v / r.totalRevenue * 100).toFixed(1) + '%' : '0.0%';
+        revBody.innerHTML =
+            '<tr><td>Invoices (excl. VAT)</td><td style="text-align:right;">' + fmt(r.invRevenue) + '</td><td style="text-align:right;">' + pct(r.invRevenue) + '</td></tr>' +
+            '<tr><td>Cash Memos / Vouchers</td><td style="text-align:right;">' + fmt(r.memoRevenue) + '</td><td style="text-align:right;">' + pct(r.memoRevenue) + '</td></tr>' +
+            '<tr style="background:#f5f7fa;"><td><strong>Total Revenue</strong></td><td style="text-align:right;"><strong>' + fmt(r.totalRevenue) + '</strong></td><td style="text-align:right;"><strong>100.0%</strong></td></tr>';
+    }
+
+    const expBody = document.getElementById('ctExpenseBody');
+    if (expBody) {
+        const treatment = (cat) => {
+            const c = (cat || '').toLowerCase();
+            if (c.includes('entertain'))                                                            return '<span style="color:#e65100;">50% disallowed (Art. 32)</span>';
+            if (c.includes('fine') || c.includes('penalty'))                                        return '<span style="color:#c62828;">100% disallowed</span>';
+            if (c.includes('donation'))                                                             return '<span style="color:#e65100;">Disallowed unless qualifying entity</span>';
+            if (c.includes('salar') || c.includes('wage') || c.includes('payroll'))                 return '<span style="color:#2e7d32;">Allowed</span>';
+            return '<span style="color:#2e7d32;">Allowed (verify)</span>';
+        };
+        const sorted = Object.entries(r.expByCategory).sort((a,b) => b[1] - a[1]);
+        if (!sorted.length) {
+            expBody.innerHTML = '<tr><td colspan="4" class="empty-state">No expenses recorded in this period</td></tr>';
+        } else {
+            const pct = (v) => r.totalExpenses > 0 ? (v / r.totalExpenses * 100).toFixed(1) + '%' : '0.0%';
+            expBody.innerHTML = sorted.map(([cat, amt]) =>
+                '<tr><td>' + esc(cat) + '</td><td style="text-align:right;">' + fmt(amt) + '</td><td style="text-align:right;">' + pct(amt) + '</td><td>' + treatment(cat) + '</td></tr>'
+            ).join('') +
+            '<tr style="background:#f5f7fa;"><td><strong>Total Expenses</strong></td><td style="text-align:right;"><strong>' + fmt(r.totalExpenses) + '</strong></td><td style="text-align:right;"><strong>100.0%</strong></td><td></td></tr>';
+        }
+    }
+
+    const methEl = document.getElementById('ctMethPeriod');
+    if (methEl) {
+        const fmtD = (s) => {
+            if (!s) return '';
+            const [y, m, d] = s.split('-');
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            return parseInt(d,10) + ' ' + months[parseInt(m,10)-1] + ' ' + y;
+        };
+        methEl.textContent = fmtD(fromDate) + ' – ' + fmtD(toDate);
+    }
+}
+
+function exportCTReportPDF() {
+    const src = document.getElementById('tab-rptCT');
+    if (!src) { showToast('Open the Corporate Tax tab first', 'error'); return; }
+    showToast('Generating CT report PDF...');
+
+    const clone = src.cloneNode(true);
+    clone.style.background = '#fff';
+    clone.style.padding = '24px';
+    clone.style.width = '800px';
+
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '0';
+    wrapper.style.top = '0';
+    wrapper.style.width = '800px';
+    wrapper.style.zIndex = '-1';
+    wrapper.style.opacity = '0';
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.background = '#fff';
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+
+    const company = (appData.settings && appData.settings.companyName) || 'Danoor';
+    const fileName = company.replace(/[^a-zA-Z0-9]/g,'') + '_CorporateTax_FY2025.pdf';
+
+    _waitForImagesIn(clone).then(() => {
+        return html2pdf().set(_pdfOptions(fileName)).from(clone).save();
+    }).then(() => {
+        document.body.removeChild(wrapper);
+        showToast('PDF downloaded: ' + fileName, 'success');
+    }).catch(err => {
+        if (wrapper.parentNode) document.body.removeChild(wrapper);
+        showToast('Export failed: ' + (err.message || err), 'error');
+    });
 }
