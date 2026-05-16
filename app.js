@@ -3920,6 +3920,16 @@ function exportCTFiguresPDF() {
 
     const profitColor = r.netProfit >= 0 ? '#1b5e20' : '#c62828';
 
+    // Tax computation - both scenarios (figures only)
+    const compBody =
+        '<tr><td>Total Revenue</td><td class="num">' + fmt(r.totalRevenue) + '</td><td class="num">' + fmt(r.totalRevenue) + '</td></tr>' +
+        '<tr><td>Total Expenses</td><td class="num">(' + fmt(r.totalExpenses) + ')</td><td class="num">(' + fmt(r.totalExpenses) + ')</td></tr>' +
+        '<tr class="sub-row"><td><strong>Net Accounting Profit</strong></td><td class="num"><strong>' + fmt(r.netProfit) + '</strong></td><td class="num"><strong>' + fmt(r.netProfit) + '</strong></td></tr>' +
+        '<tr><td>Taxable Income</td><td class="num">' + (r.sbrEligible ? 'NIL' : fmt(r.taxableIncome)) + '</td><td class="num">' + fmt(r.taxableIncome) + '</td></tr>' +
+        '<tr><td>Less: 0% threshold (AED 375,000)</td><td class="num">&mdash;</td><td class="num">(' + fmt(Math.min(r.taxableIncome, CT_FREE_THRESHOLD)) + ')</td></tr>' +
+        '<tr><td>Amount taxed at 9%</td><td class="num">&mdash;</td><td class="num">' + fmt(r.ctTaxableAboveThreshold) + '</td></tr>' +
+        '<tr class="total-row"><td><strong>Tax Liability</strong></td><td class="num"><strong style="color:#1b5e20;">AED 0.00</strong></td><td class="num"><strong style="color:#c62828;">' + fmt(r.ctWithoutSBR) + '</strong></td></tr>';
+
     const html =
         '<div id="figReport" style="font-family:\'Inter\',Arial,sans-serif;color:#1a1a2e;padding:32px 40px;width:800px;background:#fff;">' +
             '<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #2b6cb5;padding-bottom:14px;margin-bottom:24px;">' +
@@ -3962,6 +3972,16 @@ function exportCTFiguresPDF() {
                 '<tbody>' + expBody + '</tbody>' +
             '</table>' +
 
+            '<h3 style="font-size:15px;font-weight:600;color:#2b6cb5;margin:0 0 10px 0;border-bottom:1px solid #ddd;padding-bottom:6px;">Corporate Tax Computation &mdash; Both Scenarios</h3>' +
+            '<table class="ft" style="width:100%;border-collapse:collapse;margin-bottom:28px;">' +
+                '<thead><tr style="background:#f5f7fa;">' +
+                    '<th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#555;border-bottom:1px solid #ddd;">Item</th>' +
+                    '<th style="text-align:right;padding:9px 12px;font-size:12px;font-weight:600;color:#555;border-bottom:1px solid #ddd;">Scenario A (AED)</th>' +
+                    '<th style="text-align:right;padding:9px 12px;font-size:12px;font-weight:600;color:#555;border-bottom:1px solid #ddd;">Scenario B (AED)</th>' +
+                '</tr></thead>' +
+                '<tbody>' + compBody + '</tbody>' +
+            '</table>' +
+
             '<div style="background:#fafafa;border-top:2px solid #2b6cb5;padding:16px;display:flex;justify-content:space-between;align-items:center;">' +
                 '<div style="font-size:14px;font-weight:600;color:#1a1a2e;">Net Profit / (Loss) for the Period</div>' +
                 '<div style="font-size:20px;font-weight:700;color:' + profitColor + ';">' + fmt(r.netProfit) + '</div>' +
@@ -3970,6 +3990,7 @@ function exportCTFiguresPDF() {
             '<style>' +
                 '.ft td { padding:8px 12px; font-size:13px; border-bottom:1px solid #eee; }' +
                 '.ft .num { text-align:right; font-variant-numeric: tabular-nums; }' +
+                '.ft .sub-row { background:#fafbfc; }' +
                 '.ft .total-row { background:#f5f7fa; }' +
                 '.ft .total-row td { border-top:1px solid #999; }' +
             '</style>' +
