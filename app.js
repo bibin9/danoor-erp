@@ -3885,6 +3885,124 @@ function renderCorporateTax() {
     }
 }
 
+// Clean figures-only PDF — no disclaimers, no FTA / SBR / tax wording.
+// Just a professional financial summary with revenue, expenses, and net profit.
+function exportCTFiguresPDF() {
+    const fromDate = document.getElementById('ctFromDate')?.value || '2025-05-01';
+    const toDate   = document.getElementById('ctToDate')?.value   || '2025-12-31';
+    const basis    = document.getElementById('ctBasis')?.value    || 'accrual';
+    const r = computeCorporateTax(fromDate, toDate, basis);
+
+    const s = appData.settings || {};
+    const companyName = s.companyName || 'Danoor Services';
+
+    const fmtD = (str) => {
+        if (!str) return '';
+        const [y, m, d] = str.split('-');
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return parseInt(d,10) + ' ' + months[parseInt(m,10)-1] + ' ' + y;
+    };
+    const today = (() => {
+        const t = new Date();
+        return fmtD(t.toISOString().slice(0,10));
+    })();
+
+    const revBody =
+        '<tr><td>Service Revenue (Invoices)</td><td class="num">' + fmt(r.invRevenue) + '</td></tr>' +
+        (r.memoRevenue > 0 ? '<tr><td>Cash Memos / Vouchers</td><td class="num">' + fmt(r.memoRevenue) + '</td></tr>' : '') +
+        '<tr class="total-row"><td><strong>Total Revenue</strong></td><td class="num"><strong>' + fmt(r.totalRevenue) + '</strong></td></tr>';
+
+    const sortedExp = Object.entries(r.expByCategory).sort((a,b) => b[1] - a[1]);
+    const expBody = sortedExp.length
+        ? sortedExp.map(([cat, amt]) => '<tr><td>' + esc(cat) + '</td><td class="num">' + fmt(amt) + '</td></tr>').join('') +
+          '<tr class="total-row"><td><strong>Total Expenses</strong></td><td class="num"><strong>' + fmt(r.totalExpenses) + '</strong></td></tr>'
+        : '<tr><td colspan="2" style="text-align:center;color:#888;padding:14px;">No expenses recorded</td></tr>';
+
+    const profitColor = r.netProfit >= 0 ? '#1b5e20' : '#c62828';
+
+    const html =
+        '<div id="figReport" style="font-family:\'Inter\',Arial,sans-serif;color:#1a1a2e;padding:32px 40px;width:800px;background:#fff;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #2b6cb5;padding-bottom:14px;margin-bottom:24px;">' +
+                '<div>' +
+                    '<div style="font-size:22px;font-weight:700;color:#2b6cb5;">' + esc(companyName) + '</div>' +
+                    (s.businessType ? '<div style="font-size:13px;color:#666;margin-top:3px;">' + esc(s.businessType) + '</div>' : '') +
+                    (s.address ? '<div style="font-size:11px;color:#888;margin-top:2px;">' + esc(s.address) + '</div>' : '') +
+                '</div>' +
+                '<div style="text-align:right;">' +
+                    '<div style="font-size:18px;font-weight:600;color:#1a1a2e;">Financial Summary</div>' +
+                    '<div style="font-size:12px;color:#666;margin-top:4px;">Period: ' + fmtD(fromDate) + ' &ndash; ' + fmtD(toDate) + '</div>' +
+                    '<div style="font-size:11px;color:#888;">Generated: ' + today + '</div>' +
+                '</div>' +
+            '</div>' +
+
+            '<div style="display:flex;gap:14px;margin-bottom:26px;">' +
+                '<div style="flex:1;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:14px;">' +
+                    '<div style="font-size:11px;color:#2e7d32;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Total Revenue</div>' +
+                    '<div style="font-size:22px;font-weight:700;color:#1b5e20;margin-top:6px;">' + fmt(r.totalRevenue) + '</div>' +
+                '</div>' +
+                '<div style="flex:1;background:#ffebee;border:1px solid #ef9a9a;border-radius:8px;padding:14px;">' +
+                    '<div style="font-size:11px;color:#c62828;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Total Expenses</div>' +
+                    '<div style="font-size:22px;font-weight:700;color:#b71c1c;margin-top:6px;">' + fmt(r.totalExpenses) + '</div>' +
+                '</div>' +
+                '<div style="flex:1;background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:14px;">' +
+                    '<div style="font-size:11px;color:#1565c0;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Net Profit</div>' +
+                    '<div style="font-size:22px;font-weight:700;color:' + profitColor + ';margin-top:6px;">' + fmt(r.netProfit) + '</div>' +
+                '</div>' +
+            '</div>' +
+
+            '<h3 style="font-size:15px;font-weight:600;color:#2b6cb5;margin:0 0 10px 0;border-bottom:1px solid #ddd;padding-bottom:6px;">Revenue</h3>' +
+            '<table class="ft" style="width:100%;border-collapse:collapse;margin-bottom:28px;">' +
+                '<thead><tr style="background:#f5f7fa;"><th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#555;border-bottom:1px solid #ddd;">Source</th><th style="text-align:right;padding:9px 12px;font-size:12px;font-weight:600;color:#555;border-bottom:1px solid #ddd;">Amount (AED)</th></tr></thead>' +
+                '<tbody>' + revBody + '</tbody>' +
+            '</table>' +
+
+            '<h3 style="font-size:15px;font-weight:600;color:#2b6cb5;margin:0 0 10px 0;border-bottom:1px solid #ddd;padding-bottom:6px;">Expenses by Category</h3>' +
+            '<table class="ft" style="width:100%;border-collapse:collapse;margin-bottom:28px;">' +
+                '<thead><tr style="background:#f5f7fa;"><th style="text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:#555;border-bottom:1px solid #ddd;">Category</th><th style="text-align:right;padding:9px 12px;font-size:12px;font-weight:600;color:#555;border-bottom:1px solid #ddd;">Amount (AED)</th></tr></thead>' +
+                '<tbody>' + expBody + '</tbody>' +
+            '</table>' +
+
+            '<div style="background:#fafafa;border-top:2px solid #2b6cb5;padding:16px;display:flex;justify-content:space-between;align-items:center;">' +
+                '<div style="font-size:14px;font-weight:600;color:#1a1a2e;">Net Profit / (Loss) for the Period</div>' +
+                '<div style="font-size:20px;font-weight:700;color:' + profitColor + ';">' + fmt(r.netProfit) + '</div>' +
+            '</div>' +
+
+            '<style>' +
+                '.ft td { padding:8px 12px; font-size:13px; border-bottom:1px solid #eee; }' +
+                '.ft .num { text-align:right; font-variant-numeric: tabular-nums; }' +
+                '.ft .total-row { background:#f5f7fa; }' +
+                '.ft .total-row td { border-top:1px solid #999; }' +
+            '</style>' +
+        '</div>';
+
+    // Build offscreen wrapper and export
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '0';
+    wrapper.style.top = '0';
+    wrapper.style.width = '800px';
+    wrapper.style.zIndex = '-1';
+    wrapper.style.opacity = '0';
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.background = '#fff';
+    wrapper.innerHTML = html;
+    document.body.appendChild(wrapper);
+    const target = wrapper.querySelector('#figReport');
+
+    const fileName = companyName.replace(/[^a-zA-Z0-9]/g,'') + '_FinancialSummary_' + fromDate + '_to_' + toDate + '.pdf';
+    showToast('Generating PDF...');
+
+    _waitForImagesIn(target).then(() => {
+        return html2pdf().set(_pdfOptions(fileName)).from(target).save();
+    }).then(() => {
+        document.body.removeChild(wrapper);
+        showToast('PDF downloaded: ' + fileName, 'success');
+    }).catch(err => {
+        if (wrapper.parentNode) document.body.removeChild(wrapper);
+        showToast('Export failed: ' + (err.message || err), 'error');
+    });
+}
+
 function exportCTReportPDF() {
     const src = document.getElementById('tab-rptCT');
     if (!src) { showToast('Open the Corporate Tax tab first', 'error'); return; }
