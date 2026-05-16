@@ -4059,3 +4059,213 @@ function exportCTReportPDF() {
         showToast('Export failed: ' + (err.message || err), 'error');
     });
 }
+
+// ==================== UAE REFERENCE — LICENSING AUTHORITIES & PRO SERVICES ====================
+// All prices are approximate ranges in AED for a new general/commercial trading licence.
+// Fees change frequently — always verify with the authority's official website.
+const UAE_LICENSING_AUTHORITIES = [
+    // ==================== DUBAI ====================
+    { name: 'Dubai Department of Economy & Tourism (DET)', short: 'Dubai DET / DED', emirate: 'Dubai', type: 'Mainland', sector: 'All sectors', website: 'https://business.dubai.gov.ae', phone: '600 545 555', email: 'info@dedc.gov.ae', priceMin: 12000, priceMax: 25000, notes: 'Mainland Dubai licence. Can trade anywhere in UAE.' },
+    { name: 'DMCC (Dubai Multi Commodities Centre)', short: 'DMCC', emirate: 'Dubai', type: 'Free Zone', sector: 'Commodities, Trading, Services', website: 'https://www.dmcc.ae', phone: '+971 4 424 9600', email: 'info@dmcc.ae', priceMin: 20000, priceMax: 35000, notes: 'Premium free zone in JLT. 0% tax, 100% foreign ownership.' },
+    { name: 'IFZA (International Free Zone Authority)', short: 'IFZA', emirate: 'Dubai', type: 'Free Zone', sector: 'Trading, Services, Consultancy', website: 'https://www.ifza.com', phone: '+971 4 455 8000', email: 'info@ifza.com', priceMin: 12500, priceMax: 18000, notes: 'One of the most affordable Dubai free zones. Based in Dubai Silicon Oasis.' },
+    { name: 'Meydan Free Zone', short: 'Meydan FZ', emirate: 'Dubai', type: 'Free Zone', sector: 'Trading, Services, Consultancy', website: 'https://www.meydanfz.ae', phone: '+971 4 381 8888', email: 'enquiry@meydanfz.ae', priceMin: 12500, priceMax: 18500, notes: 'Affordable digital free zone. Virtual offices available.' },
+    { name: 'JAFZA (Jebel Ali Free Zone)', short: 'JAFZA', emirate: 'Dubai', type: 'Free Zone', sector: 'Trading, Logistics, Industrial', website: 'https://www.jafza.ae', phone: '+971 4 881 5555', email: 'info@jafza.ae', priceMin: 30000, priceMax: 65000, notes: 'Largest free zone in the Middle East. Near Jebel Ali Port.' },
+    { name: 'DAFZA (Dubai Airport Free Zone)', short: 'DAFZA', emirate: 'Dubai', type: 'Free Zone', sector: 'Aviation, Logistics, Trading', website: 'https://www.dafz.ae', phone: '+971 4 299 5555', email: 'info@dafz.ae', priceMin: 27000, priceMax: 50000, notes: 'Adjacent to Dubai International Airport. Premium location.' },
+    { name: 'DIFC (Dubai International Financial Centre)', short: 'DIFC', emirate: 'Dubai', type: 'Financial', sector: 'Finance, Fintech, Legal, Wealth', website: 'https://www.difc.ae', phone: '+971 4 362 2222', email: 'info@difc.ae', priceMin: 40000, priceMax: 150000, notes: 'Independent legal jurisdiction. English common law.' },
+    { name: 'Dubai Internet City (DIC) — TECOM', short: 'DIC', emirate: 'Dubai', type: 'Free Zone', sector: 'Tech, IT, Software', website: 'https://www.dic.ae', phone: '+971 4 391 1111', email: 'info@tecom.ae', priceMin: 25000, priceMax: 50000, notes: 'Part of TECOM Group. Home to Microsoft, Google, IBM, etc.' },
+    { name: 'Dubai Media City (DMC) — TECOM', short: 'DMC', emirate: 'Dubai', type: 'Free Zone', sector: 'Media, Marketing, Advertising', website: 'https://www.dmc.ae', phone: '+971 4 391 1111', email: 'info@tecom.ae', priceMin: 25000, priceMax: 50000, notes: 'For media, broadcasting, PR, advertising companies.' },
+    { name: 'Dubai Knowledge Park (DKP) — TECOM', short: 'DKP', emirate: 'Dubai', type: 'Free Zone', sector: 'Education, HR, Training', website: 'https://www.dkv.ae', phone: '+971 4 391 1111', email: 'info@tecom.ae', priceMin: 20000, priceMax: 40000, notes: 'For education, training, and HR-related companies.' },
+    { name: 'Dubai Design District (d3) — TECOM', short: 'd3', emirate: 'Dubai', type: 'Free Zone', sector: 'Design, Fashion, Art', website: 'https://www.dubaidesigndistrict.com', phone: '+971 4 433 3000', email: 'info@dubaidesigndistrict.com', priceMin: 25000, priceMax: 50000, notes: 'For designers, fashion brands, architects, artists.' },
+    { name: 'Dubai Production City', short: 'DPC', emirate: 'Dubai', type: 'Free Zone', sector: 'Print, Publishing, Packaging', website: 'https://www.dpc.ae', phone: '+971 4 391 1111', email: 'info@tecom.ae', priceMin: 22000, priceMax: 45000, notes: 'For print, publishing, packaging businesses.' },
+    { name: 'Dubai Healthcare City (DHCC)', short: 'DHCC', emirate: 'Dubai', type: 'Free Zone', sector: 'Healthcare, Medical, Wellness', website: 'https://www.dhcc.ae', phone: '+971 4 383 4040', email: 'info@dhcc.ae', priceMin: 25000, priceMax: 60000, notes: 'For clinics, hospitals, pharmaceuticals, wellness.' },
+    { name: 'Dubai Silicon Oasis (DSO)', short: 'DSO', emirate: 'Dubai', type: 'Free Zone', sector: 'Tech, R&D, Manufacturing', website: 'https://www.dsoa.ae', phone: '+971 4 372 4444', email: 'info@dsoa.ae', priceMin: 14500, priceMax: 30000, notes: 'Technology park. Now hosts IFZA.' },
+    { name: 'Dubai South / Dubai World Central (DWC)', short: 'Dubai South', emirate: 'Dubai', type: 'Free Zone', sector: 'Aviation, Logistics, Trade', website: 'https://www.dubaisouth.ae', phone: '+971 4 870 0000', email: 'info@dubaisouth.ae', priceMin: 12500, priceMax: 35000, notes: 'Around Al Maktoum International Airport. Expo 2020 site.' },
+    { name: 'Dubai CommerCity', short: 'DCC', emirate: 'Dubai', type: 'Free Zone', sector: 'E-commerce, Digital trade', website: 'https://www.dubaicommercity.ae', phone: '+971 4 514 0700', email: 'info@dubaicommercity.ae', priceMin: 20000, priceMax: 40000, notes: 'First dedicated e-commerce free zone in MENA.' },
+    { name: 'Dubai Studio City — TECOM', short: 'DSC', emirate: 'Dubai', type: 'Free Zone', sector: 'Film, Broadcasting, Music', website: 'https://www.dubaistudiocity.com', phone: '+971 4 391 1111', email: 'info@tecom.ae', priceMin: 22000, priceMax: 45000, notes: 'For TV, film, music production.' },
+    { name: 'Dubai Maritime City Authority (DMCA)', short: 'DMCA', emirate: 'Dubai', type: 'Free Zone', sector: 'Maritime, Shipping', website: 'https://www.dma.gov.ae', phone: '+971 4 345 8888', email: 'info@dma.gov.ae', priceMin: 25000, priceMax: 60000, notes: 'For maritime, ship management, marine services.' },
+    { name: 'JAFZA Offshore', short: 'JAFZA Offshore', emirate: 'Dubai', type: 'Offshore', sector: 'Holding, IP, Investment', website: 'https://www.jafza.ae', phone: '+971 4 881 5555', email: 'info@jafza.ae', priceMin: 12000, priceMax: 18000, notes: 'Offshore company. No physical presence required, no UAE residency.' },
+
+    // ==================== ABU DHABI ====================
+    { name: 'Abu Dhabi Department of Economic Development (ADDED)', short: 'Abu Dhabi DED', emirate: 'Abu Dhabi', type: 'Mainland', sector: 'All sectors', website: 'https://added.gov.ae', phone: '800 555', email: 'info@added.gov.ae', priceMin: 8000, priceMax: 25000, notes: 'Mainland Abu Dhabi. Tamm portal for services.' },
+    { name: 'ADGM (Abu Dhabi Global Market)', short: 'ADGM', emirate: 'Abu Dhabi', type: 'Financial', sector: 'Finance, Fintech, Holding', website: 'https://www.adgm.com', phone: '+971 2 333 8888', email: 'info@adgm.com', priceMin: 30000, priceMax: 100000, notes: 'Independent jurisdiction, English common law. On Al Maryah Island.' },
+    { name: 'KIZAD (Khalifa Industrial Zone)', short: 'KIZAD', emirate: 'Abu Dhabi', type: 'Free Zone', sector: 'Industrial, Logistics, Manufacturing', website: 'https://www.kizad.ae', phone: '800 102 030', email: 'info@adports.ae', priceMin: 15000, priceMax: 40000, notes: 'Operated by AD Ports Group. Near Khalifa Port.' },
+    { name: 'Masdar City Free Zone', short: 'Masdar City FZ', emirate: 'Abu Dhabi', type: 'Free Zone', sector: 'Renewable Energy, Sustainability, Tech', website: 'https://www.masdarcityfreezone.com', phone: '+971 2 653 6000', email: 'info@masdarcityfreezone.com', priceMin: 11000, priceMax: 30000, notes: 'Sustainability-focused free zone.' },
+    { name: 'twofour54', short: 'twofour54', emirate: 'Abu Dhabi', type: 'Free Zone', sector: 'Media, Content, Entertainment', website: 'https://www.twofour54.com', phone: '+971 2 401 2454', email: 'info@twofour54.com', priceMin: 9000, priceMax: 25000, notes: 'Abu Dhabi media free zone.' },
+    { name: 'Abu Dhabi Airports Free Zone (ADAFZ)', short: 'ADAFZ', emirate: 'Abu Dhabi', type: 'Free Zone', sector: 'Aviation, Logistics', website: 'https://www.adac.ae', phone: '+971 2 505 5555', email: 'info@adac.ae', priceMin: 15000, priceMax: 35000, notes: 'Adjacent to Abu Dhabi International Airport.' },
+
+    // ==================== SHARJAH ====================
+    { name: 'Sharjah Economic Development Department (SEDD)', short: 'Sharjah DED', emirate: 'Sharjah', type: 'Mainland', sector: 'All sectors', website: 'https://sedd.shj.ae', phone: '80080000', email: 'info@sedd.ae', priceMin: 8000, priceMax: 20000, notes: 'Mainland Sharjah.' },
+    { name: 'SAIF Zone (Sharjah Airport Free Zone)', short: 'SAIF Zone', emirate: 'Sharjah', type: 'Free Zone', sector: 'Trading, Industrial, Logistics', website: 'https://www.saif-zone.com', phone: '+971 6 557 8000', email: 'info@saif-zone.com', priceMin: 11000, priceMax: 25000, notes: 'Located at Sharjah International Airport.' },
+    { name: 'Hamriyah Free Zone (HFZA)', short: 'HFZA', emirate: 'Sharjah', type: 'Free Zone', sector: 'Industrial, Maritime, Petrochemicals', website: 'https://www.hfza.ae', phone: '+971 6 526 3333', email: 'info@hfza.ae', priceMin: 8000, priceMax: 25000, notes: 'Heavy industries, oil & gas, manufacturing.' },
+    { name: 'Sharjah Media City (SHAMS)', short: 'SHAMS', emirate: 'Sharjah', type: 'Free Zone', sector: 'Media, Creative, Digital', website: 'https://www.shams.ae', phone: '+971 6 575 7000', email: 'info@shams.ae', priceMin: 5750, priceMax: 11500, notes: 'Among the cheapest UAE free zones. Great for freelancers and media.' },
+    { name: 'Sharjah Publishing City (SPC Free Zone)', short: 'SPC FZ', emirate: 'Sharjah', type: 'Free Zone', sector: 'Publishing, Trading, Services', website: 'https://www.spcfz.ae', phone: '+971 6 503 7777', email: 'info@spcfz.ae', priceMin: 6875, priceMax: 15000, notes: 'Despite the name, allows almost all activities. Affordable.' },
+    { name: 'Sharjah Research, Technology & Innovation Park (SRTIP)', short: 'SRTIP', emirate: 'Sharjah', type: 'Free Zone', sector: 'R&D, Tech, Innovation', website: 'https://www.srtip.ae', phone: '+971 6 597 8000', email: 'info@srtip.ae', priceMin: 12000, priceMax: 30000, notes: 'For research, innovation and tech.' },
+
+    // ==================== AJMAN ====================
+    { name: 'Ajman Department of Economic Development', short: 'Ajman DED', emirate: 'Ajman', type: 'Mainland', sector: 'All sectors', website: 'https://www.ajmanded.ae', phone: '+971 6 711 1111', email: 'info@ajmanded.ae', priceMin: 7000, priceMax: 18000, notes: 'Mainland Ajman.' },
+    { name: 'Ajman Free Zone (AFZ)', short: 'AFZ', emirate: 'Ajman', type: 'Free Zone', sector: 'Trading, Services, Industrial', website: 'https://www.afz.ae', phone: '+971 6 701 1555', email: 'info@afz.ae', priceMin: 9000, priceMax: 20000, notes: 'Affordable free zone with virtual office options.' },
+    { name: 'Ajman Media City Free Zone (AMC)', short: 'AMC FZ', emirate: 'Ajman', type: 'Free Zone', sector: 'Media, Marketing, Services', website: 'https://www.amcfz.ae', phone: '+971 6 745 2666', email: 'info@amcfz.ae', priceMin: 5500, priceMax: 14000, notes: 'Very affordable. Allows wide range of activities.' },
+
+    // ==================== RAS AL KHAIMAH ====================
+    { name: 'RAKEZ (Ras Al Khaimah Economic Zone)', short: 'RAKEZ', emirate: 'Ras Al Khaimah', type: 'Free Zone', sector: 'All sectors', website: 'https://rakez.com', phone: '+971 7 207 0000', email: 'info@rakez.com', priceMin: 11000, priceMax: 25000, notes: 'One of the largest, most affordable free zones. 50+ industries.' },
+    { name: 'RAK ICC (RAK International Corporate Centre)', short: 'RAK ICC', emirate: 'Ras Al Khaimah', type: 'Offshore', sector: 'Holding, IP, Investment', website: 'https://www.rakicc.com', phone: '+971 7 206 8666', email: 'info@rakicc.com', priceMin: 9000, priceMax: 14000, notes: 'Premier UAE offshore jurisdiction. No physical presence required.' },
+    { name: 'RAK Maritime City', short: 'RAK MC', emirate: 'Ras Al Khaimah', type: 'Free Zone', sector: 'Maritime, Shipping', website: 'https://www.rakmaritimecity.ae', phone: '+971 7 206 8666', email: 'info@rakmaritimecity.ae', priceMin: 15000, priceMax: 35000, notes: 'Maritime-focused free zone.' },
+    { name: 'RAK DED (Ras Al Khaimah DED)', short: 'RAK DED', emirate: 'Ras Al Khaimah', type: 'Mainland', sector: 'All sectors', website: 'https://www.ded.rak.ae', phone: '+971 7 207 7222', email: 'info@ded.rak.ae', priceMin: 7000, priceMax: 18000, notes: 'Mainland Ras Al Khaimah.' },
+
+    // ==================== FUJAIRAH ====================
+    { name: 'Fujairah Department of Economic Development', short: 'Fujairah DED', emirate: 'Fujairah', type: 'Mainland', sector: 'All sectors', website: 'https://ded.fujairah.ae', phone: '+971 9 222 9999', email: 'info@ded.fujairah.ae', priceMin: 8000, priceMax: 18000, notes: 'Mainland Fujairah.' },
+    { name: 'Fujairah Free Zone (FFZ)', short: 'FFZ', emirate: 'Fujairah', type: 'Free Zone', sector: 'Trading, Industrial', website: 'https://www.fujairahfreezone.com', phone: '+971 9 222 8000', email: 'info@fujairahfreezone.com', priceMin: 8500, priceMax: 22000, notes: 'Near Fujairah Port.' },
+    { name: 'Creative City Fujairah', short: 'Creative City', emirate: 'Fujairah', type: 'Free Zone', sector: 'Media, Creative, Consulting', website: 'https://creativecity.ae', phone: '+971 9 222 5780', email: 'info@creativecity.ae', priceMin: 6500, priceMax: 14000, notes: 'Affordable, virtual-office friendly.' },
+
+    // ==================== UMM AL QUWAIN ====================
+    { name: 'UAQ Free Trade Zone', short: 'UAQ FTZ', emirate: 'Umm Al Quwain', type: 'Free Zone', sector: 'Trading, Services, Industrial', website: 'https://uaqftz.com', phone: '+971 6 765 1666', email: 'info@uaqftz.com', priceMin: 6500, priceMax: 18000, notes: 'Affordable free zone with virtual offices.' },
+    { name: 'UAQ Department of Economic Development', short: 'UAQ DED', emirate: 'Umm Al Quwain', type: 'Mainland', sector: 'All sectors', website: 'https://www.ded.uaq.ae', phone: '+971 6 765 5125', email: 'info@ded.uaq.ae', priceMin: 7000, priceMax: 16000, notes: 'Mainland UAQ.' },
+];
+
+const UAE_PRO_SERVICES = [
+    // ==================== VISA & RESIDENCY ====================
+    { name: 'GDRFA Dubai (General Directorate of Residency & Foreigners Affairs)', short: 'GDRFA Dubai', category: 'Visa & Residency', services: 'Entry permits, visa stamping, residency, exit/re-entry permits', portal: 'https://gdrfad.gov.ae', portal2: 'https://smartservices.icp.gov.ae', phone: '800 5111', email: 'info@gdrfad.gov.ae', notes: 'Dubai residency services. Use Amer centres for in-person.' },
+    { name: 'ICP (Federal Authority for Identity, Citizenship, Customs & Ports)', short: 'ICP / ICA', category: 'Visa & Residency', services: 'Emirates ID, visa, citizenship, passport (all emirates)', portal: 'https://icp.gov.ae', portal2: 'https://smartservices.icp.gov.ae', phone: '600 522 222', email: 'contactus@icp.gov.ae', notes: 'For all emirates except Dubai (use GDRFA for Dubai).' },
+    { name: 'Amer Centres (GDRFA Authorized Service Centres)', short: 'Amer', category: 'Visa & Residency', services: 'Visa applications, renewals, status updates, typing', portal: 'https://gdrfad.gov.ae', portal2: '', phone: '800 5111', email: '', notes: 'Authorized Dubai GDRFA service centres. Multiple locations across Dubai.' },
+    { name: 'Wafid (Medical Test Centres)', short: 'Wafid', category: 'Visa & Residency', services: 'Medical fitness test for visa', portal: 'https://wafid.com', portal2: '', phone: '600 525 252', email: '', notes: 'Mandatory medical test for residency visa.' },
+
+    // ==================== LABOUR & EMPLOYMENT ====================
+    { name: 'MOHRE (Ministry of Human Resources & Emiratisation)', short: 'MOHRE', category: 'Labour & Employment', services: 'Work permits, labour cards, employment contracts, complaints', portal: 'https://www.mohre.gov.ae', portal2: 'https://eservices.mohre.gov.ae', phone: '800 60', email: 'info@mohre.gov.ae', notes: 'All employer-employee matters.' },
+    { name: 'Tasheel (MOHRE Authorized Service Centres)', short: 'Tas-heel', category: 'Labour & Employment', services: 'MOHRE applications, work permits, contract amendments', portal: 'https://www.tasheel.ae', portal2: '', phone: '800 665', email: '', notes: 'Authorized MOHRE service centres.' },
+    { name: 'Tawjeeh (Worker Orientation)', short: 'Tawjeeh', category: 'Labour & Employment', services: 'Mandatory worker orientation, contract awareness session', portal: 'https://www.tawjeeh.ae', portal2: '', phone: '800 665', email: '', notes: 'Required for new visa applicants.' },
+    { name: 'Tadbeer Centres (Domestic Workers)', short: 'Tadbeer', category: 'Labour & Employment', services: 'Domestic worker recruitment, sponsorship, contracts', portal: 'https://www.mohre.gov.ae', portal2: '', phone: '800 60', email: '', notes: 'For maids, cooks, drivers, nannies.' },
+
+    // ==================== TAX ====================
+    { name: 'FTA (Federal Tax Authority)', short: 'FTA', category: 'Tax', services: 'VAT registration, VAT returns, Corporate Tax, Excise tax', portal: 'https://tax.gov.ae', portal2: 'https://eservices.tax.gov.ae', phone: '600 599 994', email: 'info@tax.gov.ae', notes: 'Login via EmaraTax for all tax filings.' },
+    { name: 'EmaraTax (FTA Portal)', short: 'EmaraTax', category: 'Tax', services: 'Online tax registration, returns, payments, refunds', portal: 'https://eservices.tax.gov.ae', portal2: '', phone: '600 599 994', email: 'info@tax.gov.ae', notes: 'Replaced the old e-Services portal in 2022.' },
+
+    // ==================== TRADE LICENCE ====================
+    { name: 'Dubai DET — Invest in Dubai', short: 'Invest in Dubai', category: 'Trade Licence', services: 'Trade name reservation, initial approval, licence issuance, renewals', portal: 'https://business.dubai.gov.ae', portal2: 'https://invest.dubai.gov.ae', phone: '600 545 555', email: 'info@dedc.gov.ae', notes: 'Dubai mainland licensing.' },
+    { name: 'TAMM (Abu Dhabi Government Services)', short: 'TAMM', category: 'Trade Licence', services: 'All Abu Dhabi government services including trade licences', portal: 'https://www.tamm.abudhabi', portal2: '', phone: '800 555', email: 'info@tamm.abudhabi', notes: 'Single-window portal for Abu Dhabi government services.' },
+    { name: 'Dubai Chamber of Commerce', short: 'Dubai Chamber', category: 'Trade Licence', services: 'Certificate of Origin, ATA Carnet, member services', portal: 'https://www.dubaichamber.com', portal2: '', phone: '+971 4 228 0000', email: 'customercare@dubaichamber.com', notes: 'Mandatory chamber membership for mainland trade licences.' },
+
+    // ==================== ATTESTATION ====================
+    { name: 'MOFA (Ministry of Foreign Affairs & International Cooperation)', short: 'MOFA', category: 'Attestation', services: 'Document attestation, certificate legalization', portal: 'https://www.mofa.gov.ae', portal2: 'https://www.mofaic.gov.ae', phone: '02 444 4488', email: 'info@mofa.gov.ae', notes: 'For UAE issued docs used abroad, and foreign docs used in UAE.' },
+    { name: 'UAE Embassies (Outbound Attestation)', short: 'UAE Embassies', category: 'Attestation', services: 'Attestation of UAE documents at destination country', portal: 'https://www.mofa.gov.ae', portal2: '', phone: '', email: '', notes: 'For UAE documents to be used in foreign countries.' },
+    { name: 'Notary Public (Dubai Courts)', short: 'Notary Public', category: 'Attestation', services: 'Document notarization, POAs, contracts, declarations', portal: 'https://www.dc.gov.ae', portal2: '', phone: '+971 4 334 7777', email: 'info@dc.gov.ae', notes: 'Both in-person and online (notary.dc.gov.ae).' },
+
+    // ==================== PROPERTY & REAL ESTATE ====================
+    { name: 'DLD (Dubai Land Department)', short: 'DLD', category: 'Property & Real Estate', services: 'Property registration, title deeds, Oqood, mortgages', portal: 'https://www.dubailand.gov.ae', portal2: 'https://dubairest.gov.ae', phone: '800 4488', email: 'info@dubailand.gov.ae', notes: 'All Dubai real estate transactions.' },
+    { name: 'Ejari (Tenancy Contract Registration — Dubai)', short: 'Ejari', category: 'Property & Real Estate', services: 'Tenancy contract registration (mandatory for tenants/landlords)', portal: 'https://www.dubailand.gov.ae', portal2: '', phone: '800 4488', email: '', notes: 'Required for DEWA, visa renewals, schooling, etc.' },
+    { name: 'RERA (Real Estate Regulatory Agency — Dubai)', short: 'RERA', category: 'Property & Real Estate', services: 'Real estate broker licensing, dispute resolution', portal: 'https://www.dubailand.gov.ae', portal2: '', phone: '800 4488', email: '', notes: 'Under DLD.' },
+
+    // ==================== HEALTH ====================
+    { name: 'DHA (Dubai Health Authority)', short: 'DHA', category: 'Health', services: 'Medical professional licensing, clinic licensing, insurance', portal: 'https://www.dha.gov.ae', portal2: 'https://services.dha.gov.ae', phone: '800 342', email: 'feedback@dha.gov.ae', notes: 'For all Dubai health-related licensing.' },
+    { name: 'DOH (Department of Health — Abu Dhabi)', short: 'DOH', category: 'Health', services: 'Healthcare professional licensing in Abu Dhabi', portal: 'https://www.doh.gov.ae', portal2: '', phone: '800 50', email: 'info@doh.gov.ae', notes: 'Abu Dhabi equivalent of DHA.' },
+    { name: 'MOHAP (Ministry of Health & Prevention)', short: 'MOHAP', category: 'Health', services: 'Healthcare licensing in northern emirates', portal: 'https://www.mohap.gov.ae', portal2: '', phone: '80011111', email: 'info@mohap.gov.ae', notes: 'For Sharjah, Ajman, RAK, Fujairah, UAQ.' },
+
+    // ==================== TRANSPORT ====================
+    { name: 'RTA (Roads & Transport Authority — Dubai)', short: 'RTA', category: 'Transport', services: 'Driving licence, vehicle registration, Salik, public transport', portal: 'https://www.rta.ae', portal2: '', phone: '8009090', email: 'ask@rta.ae', notes: 'All Dubai transport matters.' },
+    { name: 'Tasjeel (Vehicle Testing — Emirates Driving Company)', short: 'Tasjeel', category: 'Transport', services: 'Vehicle inspection, registration, renewal', portal: 'https://www.tasjeel.ae', portal2: '', phone: '8002626', email: '', notes: 'Authorized RTA centres for vehicle services.' },
+    { name: 'Abu Dhabi ITC (Integrated Transport Centre)', short: 'AD ITC', category: 'Transport', services: 'Abu Dhabi transport, driving licence, vehicle registration', portal: 'https://itc.gov.ae', portal2: '', phone: '+971 2 599 6000', email: '', notes: 'Abu Dhabi equivalent of RTA.' },
+
+    // ==================== UTILITIES ====================
+    { name: 'DEWA (Dubai Electricity & Water Authority)', short: 'DEWA', category: 'Utilities', services: 'Electricity & water connection, billing, smart meters', portal: 'https://www.dewa.gov.ae', portal2: '', phone: '991', email: 'customercare@dewa.gov.ae', notes: 'Dubai utilities.' },
+    { name: 'ADDC (Abu Dhabi Distribution Company)', short: 'ADDC', category: 'Utilities', services: 'Electricity & water for Abu Dhabi', portal: 'https://www.addc.ae', portal2: '', phone: '800 2332', email: 'customercare@addc.ae', notes: 'Abu Dhabi utilities.' },
+    { name: 'SEWA (Sharjah Electricity, Water & Gas)', short: 'SEWA', category: 'Utilities', services: 'Utilities for Sharjah', portal: 'https://www.sewa.gov.ae', portal2: '', phone: '991', email: 'cs@sewa.gov.ae', notes: 'Sharjah utilities (incl. gas).' },
+    { name: 'FEWA (Federal Electricity & Water Authority)', short: 'FEWA', category: 'Utilities', services: 'Utilities for northern emirates', portal: 'https://www.fewa.gov.ae', portal2: '', phone: '991', email: 'fewainfo@fewa.gov.ae', notes: 'Ajman, RAK, Fujairah, UAQ.' },
+
+    // ==================== OTHER ====================
+    { name: 'Dubai Municipality', short: 'DM', category: 'Other', services: 'Trade name approval, food licences, building permits, signage', portal: 'https://www.dm.gov.ae', portal2: '', phone: '800 900', email: 'info@dm.gov.ae', notes: 'Municipal approvals & permits.' },
+    { name: 'Dubai Police', short: 'Dubai Police', category: 'Other', services: 'Good conduct certificate, traffic fines, security clearances', portal: 'https://www.dubaipolice.gov.ae', portal2: '', phone: '901', email: 'mail@dubaipolice.gov.ae', notes: 'Use 999 for emergencies.' },
+    { name: 'Civil Defence', short: 'Civil Defence', category: 'Other', services: 'Fire safety permits, building approvals', portal: 'https://www.dcd.gov.ae', portal2: '', phone: '997', email: '', notes: 'Required for new business premises.' },
+    { name: 'UAE Pass', short: 'UAE Pass', category: 'Other', services: 'National digital identity, signing, login to all govt portals', portal: 'https://www.uaepass.ae', portal2: '', phone: '600 56 0000', email: 'info@uaepass.ae', notes: 'Essential for all online government services.' },
+    { name: 'DubaiNow App (Smart Dubai)', short: 'DubaiNow', category: 'Other', services: 'Pay bills, fines, renew licences in one app', portal: 'https://dubainow.dubai.ae', portal2: '', phone: '800 9090', email: '', notes: '120+ Dubai government services on one mobile app.' },
+];
+
+function _renderLicCard(a) {
+    const badgeCls = 'ref-badge-' + a.type.toLowerCase().replace(/[^a-z]/g, '');
+    const phoneClean = (a.phone || '').replace(/[^+0-9]/g, '');
+    return '<div class="ref-card">' +
+        '<div class="ref-card-header">' +
+            '<div>' +
+                '<div class="ref-card-title">' + esc(a.name) + '</div>' +
+                '<div class="ref-card-sub">' + esc(a.emirate) + ' &middot; ' + esc(a.sector) + '</div>' +
+            '</div>' +
+            '<span class="ref-badge ' + badgeCls + '">' + esc(a.type) + '</span>' +
+        '</div>' +
+        (a.notes ? '<div class="ref-line"><i class="fas fa-info-circle"></i>' + esc(a.notes) + '</div>' : '') +
+        '<div class="ref-line"><i class="fas fa-globe"></i><a href="' + a.website + '" target="_blank">' + a.website.replace(/^https?:\/\//, '') + '</a></div>' +
+        (a.phone ? '<div class="ref-line"><i class="fas fa-phone"></i>' + esc(a.phone) + '</div>' : '') +
+        (a.email ? '<div class="ref-line"><i class="fas fa-envelope"></i><a href="mailto:' + a.email + '">' + esc(a.email) + '</a></div>' : '') +
+        '<div class="ref-price">' +
+            '<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.4px;">New Licence &mdash; Approx. Range</div>' +
+            '<div class="ref-price-amt">AED ' + a.priceMin.toLocaleString() + ' &ndash; ' + a.priceMax.toLocaleString() + '</div>' +
+        '</div>' +
+        '<div class="ref-actions">' +
+            '<a class="btn-website" href="' + a.website + '" target="_blank"><i class="fas fa-arrow-up-right-from-square"></i> Website</a>' +
+            (phoneClean ? '<a class="btn-call" href="tel:' + phoneClean + '"><i class="fas fa-phone"></i> Call</a>' : '') +
+            (a.email ? '<a class="btn-email" href="mailto:' + a.email + '"><i class="fas fa-envelope"></i> Email</a>' : '') +
+        '</div>' +
+    '</div>';
+}
+
+function _renderProCard(p) {
+    const phoneClean = (p.phone || '').replace(/[^+0-9]/g, '');
+    return '<div class="ref-card">' +
+        '<div class="ref-card-header">' +
+            '<div>' +
+                '<div class="ref-card-title">' + esc(p.name) + '</div>' +
+                '<div class="ref-card-sub">' + esc(p.category) + '</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="ref-services"><strong>Services:</strong> ' + esc(p.services) + '</div>' +
+        (p.notes ? '<div class="ref-line"><i class="fas fa-info-circle"></i>' + esc(p.notes) + '</div>' : '') +
+        '<div class="ref-line"><i class="fas fa-globe"></i><a href="' + p.portal + '" target="_blank">' + p.portal.replace(/^https?:\/\//, '') + '</a></div>' +
+        (p.portal2 ? '<div class="ref-line"><i class="fas fa-globe"></i><a href="' + p.portal2 + '" target="_blank">' + p.portal2.replace(/^https?:\/\//, '') + '</a></div>' : '') +
+        (p.phone ? '<div class="ref-line"><i class="fas fa-phone"></i>' + esc(p.phone) + '</div>' : '') +
+        (p.email ? '<div class="ref-line"><i class="fas fa-envelope"></i><a href="mailto:' + p.email + '">' + esc(p.email) + '</a></div>' : '') +
+        '<div class="ref-actions">' +
+            '<a class="btn-website" href="' + p.portal + '" target="_blank"><i class="fas fa-arrow-up-right-from-square"></i> Portal</a>' +
+            (phoneClean ? '<a class="btn-call" href="tel:' + phoneClean + '"><i class="fas fa-phone"></i> Call</a>' : '') +
+            (p.email ? '<a class="btn-email" href="mailto:' + p.email + '"><i class="fas fa-envelope"></i> Email</a>' : '') +
+        '</div>' +
+    '</div>';
+}
+
+function renderUaeReference() {
+    // --- Licensing Authorities ---
+    const licGrid = document.getElementById('uaeLicGrid');
+    if (licGrid) {
+        const search   = (document.getElementById('uaeLicSearch')?.value || '').toLowerCase();
+        const emirate  = document.getElementById('uaeLicEmirate')?.value || '';
+        const typeFlt  = document.getElementById('uaeLicType')?.value || '';
+        const sortBy   = document.getElementById('uaeLicSort')?.value || 'emirate';
+
+        let list = UAE_LICENSING_AUTHORITIES.slice();
+        if (search) list = list.filter(a =>
+            (a.name + ' ' + a.short + ' ' + a.sector + ' ' + a.emirate + ' ' + (a.notes || '')).toLowerCase().includes(search));
+        if (emirate) list = list.filter(a => a.emirate === emirate);
+        if (typeFlt) list = list.filter(a => a.type === typeFlt);
+
+        if (sortBy === 'price-asc')       list.sort((a,b) => a.priceMin - b.priceMin);
+        else if (sortBy === 'price-desc') list.sort((a,b) => b.priceMin - a.priceMin);
+        else if (sortBy === 'name')       list.sort((a,b) => a.name.localeCompare(b.name));
+        else /* emirate */                list.sort((a,b) => (a.emirate + a.name).localeCompare(b.emirate + b.name));
+
+        licGrid.innerHTML = list.length
+            ? list.map(_renderLicCard).join('')
+            : '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-secondary);">No matching authorities found.</div>';
+    }
+
+    // --- PRO Services ---
+    const proGrid = document.getElementById('uaeProGrid');
+    if (proGrid) {
+        const search   = (document.getElementById('uaeProSearch')?.value || '').toLowerCase();
+        const category = document.getElementById('uaeProCategory')?.value || '';
+
+        let list = UAE_PRO_SERVICES.slice();
+        if (search) list = list.filter(p =>
+            (p.name + ' ' + p.short + ' ' + p.services + ' ' + p.category + ' ' + (p.notes || '')).toLowerCase().includes(search));
+        if (category) list = list.filter(p => p.category === category);
+
+        proGrid.innerHTML = list.length
+            ? list.map(_renderProCard).join('')
+            : '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-secondary);">No matching services found.</div>';
+    }
+}

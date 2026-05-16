@@ -155,6 +155,9 @@
             <a href="#" class="nav-item" data-page="services">
                 <i class="fas fa-clipboard-list"></i><span>Service Catalogue</span>
             </a>
+            <a href="#" class="nav-item" data-page="uaeref">
+                <i class="fas fa-building-flag"></i><span>UAE Reference</span>
+            </a>
             <a href="#" class="nav-item" data-page="settings">
                 <i class="fas fa-gear"></i><span>Settings</span>
             </a>
@@ -1455,6 +1458,106 @@
                 </div>
             </section>
 
+            <!-- ==================== UAE REFERENCE — Licensing & PRO Services ==================== -->
+            <section class="page" id="page-uaeref">
+                <div class="page-header">
+                    <h2>UAE Reference</h2>
+                    <div style="font-size:12px;color:var(--text-secondary);">Quick lookup for licensing authorities & PRO portals</div>
+                </div>
+
+                <!-- Disclaimer -->
+                <div style="background:#e8f0fe;border:1px solid #90caf9;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#1565c0;line-height:1.55;">
+                    <i class="fas fa-circle-info"></i> Prices shown are <strong>approximate ranges</strong> for a new general trading licence and exclude visas, office rent, NOCs, attestations and other extras. Fees change frequently — always confirm with the authority's official website or call them before quoting a customer.
+                </div>
+
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab active" data-tab="uaeLicAuth"><i class="fas fa-building-flag"></i> Licensing Authorities</button>
+                    <button class="tab" data-tab="uaePro"><i class="fas fa-id-card"></i> PRO Services / Government Portals</button>
+                </div>
+
+                <!-- Licensing Authorities Tab -->
+                <div class="tab-content active" id="tab-uaeLicAuth">
+                    <div class="filter-bar">
+                        <input type="text" id="uaeLicSearch" class="input" placeholder="Search by name, emirate, sector..." oninput="renderUaeReference()">
+                        <select id="uaeLicEmirate" class="input" onchange="renderUaeReference()">
+                            <option value="">All Emirates</option>
+                            <option value="Dubai">Dubai</option>
+                            <option value="Abu Dhabi">Abu Dhabi</option>
+                            <option value="Sharjah">Sharjah</option>
+                            <option value="Ajman">Ajman</option>
+                            <option value="Ras Al Khaimah">Ras Al Khaimah</option>
+                            <option value="Fujairah">Fujairah</option>
+                            <option value="Umm Al Quwain">Umm Al Quwain</option>
+                        </select>
+                        <select id="uaeLicType" class="input" onchange="renderUaeReference()">
+                            <option value="">All Types</option>
+                            <option value="Mainland">Mainland (DED)</option>
+                            <option value="Free Zone">Free Zone</option>
+                            <option value="Offshore">Offshore</option>
+                            <option value="Financial">Financial Centre</option>
+                        </select>
+                        <select id="uaeLicSort" class="input" onchange="renderUaeReference()">
+                            <option value="emirate">Sort: Emirate</option>
+                            <option value="price-asc">Sort: Price (low → high)</option>
+                            <option value="price-desc">Sort: Price (high → low)</option>
+                            <option value="name">Sort: Name (A-Z)</option>
+                        </select>
+                    </div>
+                    <div id="uaeLicGrid" class="ref-grid"></div>
+                </div>
+
+                <!-- PRO Services Tab -->
+                <div class="tab-content" id="tab-uaePro">
+                    <div class="filter-bar">
+                        <input type="text" id="uaeProSearch" class="input" placeholder="Search service, authority, portal..." oninput="renderUaeReference()">
+                        <select id="uaeProCategory" class="input" onchange="renderUaeReference()">
+                            <option value="">All Categories</option>
+                            <option value="Visa & Residency">Visa & Residency</option>
+                            <option value="Labour & Employment">Labour & Employment</option>
+                            <option value="Tax">Tax</option>
+                            <option value="Trade Licence">Trade Licence</option>
+                            <option value="Attestation">Attestation</option>
+                            <option value="Property & Real Estate">Property & Real Estate</option>
+                            <option value="Health">Health</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div id="uaeProGrid" class="ref-grid"></div>
+                </div>
+
+                <style>
+                    .ref-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:14px; margin-top:14px; }
+                    .ref-card { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:16px; transition:.2s; display:flex; flex-direction:column; }
+                    .ref-card:hover { box-shadow:0 4px 18px rgba(0,0,0,.08); transform:translateY(-2px); }
+                    .ref-card-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px; }
+                    .ref-card-title { font-size:15px; font-weight:700; color:var(--primary); line-height:1.3; }
+                    .ref-card-sub { font-size:11px; color:var(--text-secondary); margin-top:2px; }
+                    .ref-badge { font-size:10px; font-weight:600; padding:3px 8px; border-radius:10px; white-space:nowrap; text-transform:uppercase; letter-spacing:.4px; }
+                    .ref-badge-mainland  { background:#e3f2fd; color:#1565c0; border:1px solid #90caf9; }
+                    .ref-badge-freezone  { background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; }
+                    .ref-badge-offshore  { background:#fff3e0; color:#e65100; border:1px solid #ffcc80; }
+                    .ref-badge-financial { background:#f3e5f5; color:#6a1b9a; border:1px solid #ce93d8; }
+                    .ref-line { font-size:12px; color:var(--text-secondary); margin:4px 0; line-height:1.5; }
+                    .ref-line i { width:14px; color:var(--primary); margin-right:4px; }
+                    .ref-line a { color:var(--primary); text-decoration:none; word-break:break-all; }
+                    .ref-line a:hover { text-decoration:underline; }
+                    .ref-price { background:#fff8e1; border-left:3px solid #f5a623; padding:8px 10px; margin-top:10px; border-radius:0 6px 6px 0; font-size:12px; }
+                    .ref-price-amt { font-weight:700; color:#bf6a00; font-size:14px; }
+                    .ref-services { background:#f5f7fa; padding:8px 10px; margin-top:10px; border-radius:6px; font-size:11px; color:#444; line-height:1.6; }
+                    .ref-actions { display:flex; gap:6px; margin-top:auto; padding-top:10px; flex-wrap:wrap; }
+                    .ref-actions a { font-size:11px; padding:5px 10px; border-radius:6px; text-decoration:none; transition:.15s; }
+                    .ref-actions .btn-website { background:#2b6cb5; color:#fff; }
+                    .ref-actions .btn-website:hover { background:#1d4e9a; }
+                    .ref-actions .btn-call { background:#27ae60; color:#fff; }
+                    .ref-actions .btn-call:hover { background:#1e8449; }
+                    .ref-actions .btn-email { background:#7e8794; color:#fff; }
+                    .ref-actions .btn-email:hover { background:#5a6371; }
+                </style>
+            </section>
+
             <!-- ==================== SETTINGS ==================== -->
             <section class="page" id="page-settings">
                 <div class="page-header">
@@ -2685,6 +2788,7 @@
             <a href="#" class="mobile-more-item" data-page="contacts"><i class="fas fa-address-book"></i> Contacts</a>
             <a href="#" class="mobile-more-item" data-page="itemmaster"><i class="fas fa-list-check"></i> Item Master</a>
             <a href="#" class="mobile-more-item" data-page="services"><i class="fas fa-clipboard-list"></i> Service Catalogue</a>
+            <a href="#" class="mobile-more-item" data-page="uaeref"><i class="fas fa-building-flag"></i> UAE Reference</a>
             <a href="#" class="mobile-more-item" data-page="settings"><i class="fas fa-gear"></i> Settings</a>
         </div>
     </div>
@@ -2874,13 +2978,15 @@
             dashboard: 'Dashboard', quotations: 'Quotations', sales: 'Invoices',
             purchases: 'Purchase Orders', inventory: 'Inventory', accounting: 'Accounting',
             reports: 'Reports', hr: 'HR & Payroll', contacts: 'Contacts', services: 'Service Catalogue', settings: 'Settings',
-            loans: 'Loans & Liabilities', tasks: 'Tasks / Work-in-Progress', itemmaster: 'Item Master'
+            loans: 'Loans & Liabilities', tasks: 'Tasks / Work-in-Progress', itemmaster: 'Item Master',
+            uaeref: 'UAE Reference — Licensing & PRO Services'
         };
         document.getElementById('pageTitle').textContent = titleMap[page] || page;
         document.getElementById('sidebar').classList.remove('mobile-open');
         if (page === 'dashboard') updateDashboard();
         if (page === 'accounting') renderPnL();
         if (page === 'tasks') renderTasks();
+        if (page === 'uaeref') renderUaeReference();
         if (page === 'reports') renderAllReports();
         window.scrollTo(0, 0);
     }
