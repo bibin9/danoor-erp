@@ -1067,15 +1067,22 @@ function editInvoice(id) {
     document.getElementById('invStatus').value = inv.status;
     document.getElementById('invNotes').value = inv.notes || '';
     document.getElementById('invoiceModalTitle').textContent = 'Edit Invoice ' + inv.number;
-    // Handle three cases when loading existing lines:
-    //   1. New-style lines with govt + svc split
-    //   2. Old-style lines with only price -> put full price into Govt Fee, Submission Fee = 0
-    //      (Reflects historical reality: most old charges were government fees paid on behalf of customer)
-    //   3. Lines carrying both (from cache) -> prefer govt+svc
+    // Backward compat for line items:
+    //   - Truly old invoices only have `price`
+    //   - v49 auto-migrated old invoices got saved with { govt:0, svc:price }
+    //   - Both cases should be shown as Govt Fee = price, Submission Fee = 0
+    //     (matches the historical reality — most old charges were government fees
+    //      paid on behalf of customers).
+    //   - Invoices that were explicitly split (govt > 0) are preserved as-is.
     document.getElementById('invLineItemsBody').innerHTML = (inv.lines||[]).map(l => {
-        let govt = l.govt, svc = l.svc;
-        if (govt === undefined && svc === undefined) { govt = l.price || 0; svc = 0; }
-        else { govt = govt || 0; svc = svc || 0; }
+        let govt = l.govt || 0;
+        let svc  = l.svc  || 0;
+        const price = l.price || 0;
+        if (govt === 0 && price > 0) {
+            // Legacy or v49 auto-migrated line: treat entire price as Govt Fee
+            govt = price;
+            svc  = 0;
+        }
         return '<tr>' + getInvLineRowHtml(l.desc, l.qty, govt, svc) + '</tr>';
     }).join('');
     openModal('invoiceModal');
