@@ -2316,7 +2316,7 @@ function buildDocPreview({ type, doc, settings, partyLabel, partyName, extraMeta
             <td class="td-num">${l.qty}</td><td class="td-num">${l.total.toFixed(2)}</td></tr>`).join('');
     }
     const thCols = showGovtSvc
-        ? '<th class="th-desc">DESCRIPTION</th><th class="th-num">GOVT FEE(AED)</th><th class="th-num">SVC FEE(AED)</th><th class="th-num">QTY</th><th class="th-num">TOTAL</th>'
+        ? '<th class="th-desc">DESCRIPTION</th><th class="th-num">GOVT FEE(AED)</th><th class="th-num">SUBMISSION FEE(AED)</th><th class="th-num">QTY</th><th class="th-num">TOTAL</th>'
         : '<th class="th-desc">DESCRIPTION</th><th class="th-num">PRICE(AED)</th><th class="th-num">QTY</th><th class="th-num">TOTAL</th>';
 
     return `<div class="doc-preview" id="printableDoc">
