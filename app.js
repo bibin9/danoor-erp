@@ -1069,11 +1069,12 @@ function editInvoice(id) {
     document.getElementById('invoiceModalTitle').textContent = 'Edit Invoice ' + inv.number;
     // Handle three cases when loading existing lines:
     //   1. New-style lines with govt + svc split
-    //   2. Old-style lines with only price -> put full price into Submission Fee
+    //   2. Old-style lines with only price -> put full price into Govt Fee, Submission Fee = 0
+    //      (Reflects historical reality: most old charges were government fees paid on behalf of customer)
     //   3. Lines carrying both (from cache) -> prefer govt+svc
     document.getElementById('invLineItemsBody').innerHTML = (inv.lines||[]).map(l => {
         let govt = l.govt, svc = l.svc;
-        if (govt === undefined && svc === undefined) { govt = 0; svc = l.price || 0; }
+        if (govt === undefined && svc === undefined) { govt = l.price || 0; svc = 0; }
         else { govt = govt || 0; svc = svc || 0; }
         return '<tr>' + getInvLineRowHtml(l.desc, l.qty, govt, svc) + '</tr>';
     }).join('');
