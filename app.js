@@ -467,19 +467,24 @@ function getItemMasterOptions() {
     return opts;
 }
 
-function getInvLineRowHtml(desc, qty, price) {
+// Signature: getInvLineRowHtml(desc, qty, govt, svc)
+// Backward compat: older invoices had a single 'price' -> we place it in svc and set govt=0
+function getInvLineRowHtml(desc, qty, govt, svc) {
     desc = desc || '';
-    qty = qty || 1;
-    price = price || 0;
-    return `<td style="min-width:250px;">
+    qty  = qty  || 1;
+    govt = govt || 0;
+    svc  = svc  || 0;
+    const lineTotal = (govt + svc) * qty;
+    return `<td style="min-width:220px;">
             <select class="input inv-item-select" onchange="onInvItemSelect(this)" style="margin-bottom:4px;font-size:0.8rem;">
                 ${getItemMasterOptions()}
             </select>
             <input type="text" class="input inv-desc" placeholder="Item description (ad-hoc or auto-filled)" value="${esc(desc)}">
         </td>
         <td><input type="number" class="input inv-qty" value="${qty}" min="1" oninput="calcInvoiceTotal()"></td>
-        <td><input type="number" class="input inv-price" value="${price}" step="0.01" oninput="calcInvoiceTotal()"></td>
-        <td class="inv-line-total">${(qty * price).toFixed(2)}</td>
+        <td><input type="number" class="input inv-govt" value="${govt}" step="0.01" min="0" oninput="calcInvoiceTotal()"></td>
+        <td><input type="number" class="input inv-svc" value="${svc}" step="0.01" min="0" oninput="calcInvoiceTotal()"></td>
+        <td class="inv-line-total">${lineTotal.toFixed(2)}</td>
         <td><button class="btn-icon" onclick="removeInvLine(this)"><i class="fas fa-trash"></i></button></td>`;
 }
 
@@ -487,14 +492,16 @@ function onInvItemSelect(sel) {
     const row = sel.closest('tr');
     const opt = sel.options[sel.selectedIndex];
     if (sel.value) {
-        // Selected an Item Master item
+        // Selected an Item Master item — put the whole default price into Submission Fee.
+        // User can then re-split into Govt Fee if needed.
         const desc = opt.getAttribute('data-desc') || opt.textContent;
         const price = parseFloat(opt.getAttribute('data-price')) || 0;
         row.querySelector('.inv-desc').value = desc;
-        row.querySelector('.inv-price').value = price;
+        row.querySelector('.inv-svc').value  = price;
+        row.querySelector('.inv-govt').value = 0;
         calcInvoiceTotal();
     }
-    // If "Custom", leave desc and price as-is for user to type
+    // If "Custom", leave desc / govt / svc as-is for user to type
 }
 
 // ==================== QUOTATIONS ====================
@@ -751,9 +758,10 @@ function removeInvLine(btn) {
 function calcInvoiceTotal() {
     let subtotal = 0;
     document.querySelectorAll('#invLineItemsBody tr').forEach(row => {
-        const qty = parseFloat(row.querySelector('.inv-qty').value) || 0;
-        const price = parseFloat(row.querySelector('.inv-price').value) || 0;
-        const lt = qty * price;
+        const qty  = parseFloat(row.querySelector('.inv-qty').value)  || 0;
+        const govt = parseFloat(row.querySelector('.inv-govt')?.value) || 0;
+        const svc  = parseFloat(row.querySelector('.inv-svc')?.value)  || 0;
+        const lt = (govt + svc) * qty;
         row.querySelector('.inv-line-total').textContent = lt.toFixed(2);
         subtotal += lt;
     });
@@ -943,9 +951,11 @@ function saveInvoice() {
     const lines = [];
     document.querySelectorAll('#invLineItemsBody tr').forEach(row => {
         const desc = row.querySelector('.inv-desc').value.trim();
-        const qty = parseFloat(row.querySelector('.inv-qty').value) || 0;
-        const price = parseFloat(row.querySelector('.inv-price').value) || 0;
-        if (desc && qty > 0) lines.push({ desc, qty, price, total: qty * price });
+        const qty  = parseFloat(row.querySelector('.inv-qty').value)  || 0;
+        const govt = parseFloat(row.querySelector('.inv-govt')?.value) || 0;
+        const svc  = parseFloat(row.querySelector('.inv-svc')?.value)  || 0;
+        const price = govt + svc; // keep for backward compat with older code paths
+        if (desc && qty > 0) lines.push({ desc, qty, govt, svc, price, total: (govt + svc) * qty });
     });
     if (!lines.length) { _endSave(); return showToast('Add at least one line item', 'error'); }
     const totals = calcInvoiceTotal();
@@ -1040,7 +1050,7 @@ function resetInvoiceForm() {
     document.getElementById('invVatRate').value = '0';
     if (document.getElementById('invLinkedQuote')) document.getElementById('invLinkedQuote').value = '';
     document.getElementById('invoiceModalTitle').textContent = 'New Invoice';
-    document.getElementById('invLineItemsBody').innerHTML = '<tr>' + getInvLineRowHtml('', 1, 0) + '</tr>';
+    document.getElementById('invLineItemsBody').innerHTML = '<tr>' + getInvLineRowHtml('', 1, 0, 0) + '</tr>';
     if (document.getElementById('invPaidAmount')) document.getElementById('invPaidAmount').value = '';
     if (document.getElementById('invPartialRow')) document.getElementById('invPartialRow').style.display = 'none';
     calcInvoiceTotal();
@@ -1057,7 +1067,16 @@ function editInvoice(id) {
     document.getElementById('invStatus').value = inv.status;
     document.getElementById('invNotes').value = inv.notes || '';
     document.getElementById('invoiceModalTitle').textContent = 'Edit Invoice ' + inv.number;
-    document.getElementById('invLineItemsBody').innerHTML = (inv.lines||[]).map(l => '<tr>' + getInvLineRowHtml(l.desc, l.qty, l.price) + '</tr>').join('');
+    // Handle three cases when loading existing lines:
+    //   1. New-style lines with govt + svc split
+    //   2. Old-style lines with only price -> put full price into Submission Fee
+    //   3. Lines carrying both (from cache) -> prefer govt+svc
+    document.getElementById('invLineItemsBody').innerHTML = (inv.lines||[]).map(l => {
+        let govt = l.govt, svc = l.svc;
+        if (govt === undefined && svc === undefined) { govt = 0; svc = l.price || 0; }
+        else { govt = govt || 0; svc = svc || 0; }
+        return '<tr>' + getInvLineRowHtml(l.desc, l.qty, govt, svc) + '</tr>';
+    }).join('');
     openModal('invoiceModal');
     setTimeout(() => {
         document.getElementById('invCustomer').value = inv.customerId || '';
@@ -1085,6 +1104,7 @@ function previewInvoice(id) {
     document.getElementById('printPreviewContent').innerHTML = buildDocPreview({
         type: 'INVOICE', doc: inv, settings: appData.settings,
         extraMeta: `<div>Due: ${inv.dueDate}</div>${inv.title ? '<div>Re: ' + esc(inv.title) + '</div>' : ''}`,
+        showGovtSvc: true,
         footer: (inv.notes ? '<strong>Notes:</strong> ' + esc(inv.notes) + '<br>' : '') + '<em>Tax invoice issued per UAE FTA regulations.</em>'
     });
     openModal('printModal');
@@ -3225,8 +3245,10 @@ function exportAllData(silent) {
         quotations: appData.quotations, invoices: appData.invoices, purchases: appData.purchases,
         inventory: appData.inventory, employees: appData.employees, expenses: appData.expenses,
         journalEntries: appData.journalEntries, payrollRuns: appData.payrollRuns,
-        cashMemos: appData.cashMemos, itemMaster: appData.itemMaster, coa: appData.coa,
-        exportDate: new Date().toISOString()
+        cashMemos: appData.cashMemos, itemMaster: appData.itemMaster,
+        loans: appData.loans, tasks: appData.tasks, coa: appData.coa,
+        exportDate: new Date().toISOString(),
+        appVersion: 'v49'
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
