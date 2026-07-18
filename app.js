@@ -2297,10 +2297,19 @@ function buildDocPreview({ type, doc, settings, partyLabel, partyName, extraMeta
     // Build line items rows with alternating stripes
     let linesHtml = '';
     if (showGovtSvc) {
-        linesHtml = lines.map((l, i) => `<tr class="${i%2===0?'row-stripe':''}">
-            <td class="td-desc">${esc(l.desc)}</td><td class="td-num">${(l.govt||0).toFixed(2)}</td>
-            <td class="td-num">${(l.svc||0).toFixed(2)}</td><td class="td-num">${l.qty}</td>
-            <td class="td-num">${l.total.toFixed(2)}</td></tr>`).join('');
+        // Backward compat: same rule as edit form — if Govt Fee is 0 but the
+        // line has a price (legacy / v49 auto-migrated), display the full
+        // price in the Govt Fee column and Submission Fee = 0.
+        linesHtml = lines.map((l, i) => {
+            let govt = l.govt || 0;
+            let svc  = l.svc  || 0;
+            const price = l.price || 0;
+            if (govt === 0 && price > 0) { govt = price; svc = 0; }
+            return `<tr class="${i%2===0?'row-stripe':''}">
+                <td class="td-desc">${esc(l.desc)}</td><td class="td-num">${govt.toFixed(2)}</td>
+                <td class="td-num">${svc.toFixed(2)}</td><td class="td-num">${l.qty}</td>
+                <td class="td-num">${l.total.toFixed(2)}</td></tr>`;
+        }).join('');
     } else {
         linesHtml = lines.map((l, i) => `<tr class="${i%2===0?'row-stripe':''}">
             <td class="td-desc">${esc(l.desc)}</td><td class="td-num">${(l.price||0).toFixed(2)}</td>
