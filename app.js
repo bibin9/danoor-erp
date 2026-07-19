@@ -955,7 +955,9 @@ function saveInvoice() {
         const govt = parseFloat(row.querySelector('.inv-govt')?.value) || 0;
         const svc  = parseFloat(row.querySelector('.inv-svc')?.value)  || 0;
         const price = govt + svc; // keep for backward compat with older code paths
-        if (desc && qty > 0) lines.push({ desc, qty, govt, svc, price, total: (govt + svc) * qty });
+        // split:true marks lines whose Govt / Submission split was set through the
+        // new UI (post-v49), so backward-compat logic won't touch them on reload.
+        if (desc && qty > 0) lines.push({ desc, qty, govt, svc, price, split: true, total: (govt + svc) * qty });
     });
     if (!lines.length) { _endSave(); return showToast('Add at least one line item', 'error'); }
     const totals = calcInvoiceTotal();
@@ -1068,20 +1070,16 @@ function editInvoice(id) {
     document.getElementById('invNotes').value = inv.notes || '';
     document.getElementById('invoiceModalTitle').textContent = 'Edit Invoice ' + inv.number;
     // Backward compat for line items:
-    //   - Truly old invoices only have `price`
-    //   - v49 auto-migrated old invoices got saved with { govt:0, svc:price }
-    //   - Both cases should be shown as Govt Fee = price, Submission Fee = 0
-    //     (matches the historical reality — most old charges were government fees
-    //      paid on behalf of customers).
-    //   - Invoices that were explicitly split (govt > 0) are preserved as-is.
+    //   - Lines saved through the new UI carry `split: true` — always use their
+    //     govt / svc values as-is (Govt Fee = 0 is a legitimate choice).
+    //   - Lines without `split` are legacy or v49 auto-migrated — if their Govt
+    //     Fee is 0 but a price exists, move the whole price into Govt Fee.
     document.getElementById('invLineItemsBody').innerHTML = (inv.lines||[]).map(l => {
         let govt = l.govt || 0;
         let svc  = l.svc  || 0;
-        const price = l.price || 0;
-        if (govt === 0 && price > 0) {
-            // Legacy or v49 auto-migrated line: treat entire price as Govt Fee
-            govt = price;
-            svc  = 0;
+        if (!l.split) {
+            const price = l.price || 0;
+            if (govt === 0 && price > 0) { govt = price; svc = 0; }
         }
         return '<tr>' + getInvLineRowHtml(l.desc, l.qty, govt, svc) + '</tr>';
     }).join('');
@@ -2297,14 +2295,16 @@ function buildDocPreview({ type, doc, settings, partyLabel, partyName, extraMeta
     // Build line items rows with alternating stripes
     let linesHtml = '';
     if (showGovtSvc) {
-        // Backward compat: same rule as edit form — if Govt Fee is 0 but the
-        // line has a price (legacy / v49 auto-migrated), display the full
-        // price in the Govt Fee column and Submission Fee = 0.
+        // Same rule as edit form. Only legacy lines (no split flag) get their
+        // price moved into Govt Fee. Lines saved through the split UI are shown
+        // as-is, so Govt Fee = 0 is respected.
         linesHtml = lines.map((l, i) => {
             let govt = l.govt || 0;
             let svc  = l.svc  || 0;
-            const price = l.price || 0;
-            if (govt === 0 && price > 0) { govt = price; svc = 0; }
+            if (!l.split) {
+                const price = l.price || 0;
+                if (govt === 0 && price > 0) { govt = price; svc = 0; }
+            }
             return `<tr class="${i%2===0?'row-stripe':''}">
                 <td class="td-desc">${esc(l.desc)}</td><td class="td-num">${govt.toFixed(2)}</td>
                 <td class="td-num">${svc.toFixed(2)}</td><td class="td-num">${l.qty}</td>
