@@ -3,8 +3,18 @@
 
 // ---- Save guard: prevents duplicate submissions on double-click ----
 let _saving = false;
-function _beginSave() { if (_saving) return false; _saving = true; return true; }
-function _endSave()   { _saving = false; }
+let _savingTimer = null;
+function _beginSave() {
+    if (_saving) return false;
+    _saving = true;
+    // Safety net: if a save ever fails to release the lock (e.g. a synchronous
+    // throw before a .catch attaches), auto-release after 10s so the app never
+    // gets permanently stuck refusing to save.
+    if (_savingTimer) clearTimeout(_savingTimer);
+    _savingTimer = setTimeout(() => { _saving = false; }, 10000);
+    return true;
+}
+function _endSave()   { _saving = false; if (_savingTimer) { clearTimeout(_savingTimer); _savingTimer = null; } }
 
 const DEFAULT_VAT_RATE = 0.05;
 function getVatRate(selectId) {
@@ -1024,16 +1034,21 @@ function saveInvoice() {
         linkedQuote: document.getElementById('invLinkedQuote').value || '',
         payments, paidAmount
     };
-    let promise;
-    if (editId) { promise = fsUpdate('invoices', editId, invoice); }
-    else {
-        promise = fsAdd('invoices', invoice).then(() => {
-            // Only auto-increment if number was not manually edited
-            if (invoiceNumber === autoNumber) return incrementCounter('invNext');
-        });
+    try {
+        let promise;
+        if (editId) { promise = fsUpdate('invoices', editId, invoice); }
+        else {
+            promise = fsAdd('invoices', invoice).then(() => {
+                // Only auto-increment if number was not manually edited
+                if (invoiceNumber === autoNumber) return incrementCounter('invNext');
+            });
+        }
+        promise.then(() => { _endSave(); closeModal('invoiceModal'); resetInvoiceForm(); showToast('Invoice saved!'); })
+            .catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
+    } catch (e) {
+        _endSave();
+        showToast('Error saving invoice: ' + (e.message || e), 'error');
     }
-    promise.then(() => { _endSave(); closeModal('invoiceModal'); resetInvoiceForm(); showToast('Invoice saved!'); })
-        .catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }
 
 function resetInvoiceForm() {

@@ -284,16 +284,32 @@ function detachListeners() {
 }
 
 // ==================== FIRESTORE CRUD HELPERS ====================
+// Recursively strip undefined values from objects and arrays.
+// Firestore's .add()/.update() throw SYNCHRONOUSLY on any nested undefined,
+// which would bypass a caller's .catch() and leave save-locks stuck.
+function _cleanUndefined(val) {
+    if (Array.isArray(val)) {
+        return val.map(_cleanUndefined);
+    }
+    if (val && typeof val === 'object' && !(val instanceof Date) && typeof val.toDate !== 'function') {
+        const out = {};
+        Object.keys(val).forEach(k => {
+            if (val[k] !== undefined) out[k] = _cleanUndefined(val[k]);
+        });
+        return out;
+    }
+    return val;
+}
+
 function fsAdd(collection, data) {
-    // Remove undefined fields
-    Object.keys(data).forEach(k => { if (data[k] === undefined) delete data[k]; });
+    data = _cleanUndefined(data);
     data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
     data.createdBy = auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : '';
     return db.collection(collection).add(data);
 }
 
 function fsUpdate(collection, docId, data) {
-    Object.keys(data).forEach(k => { if (data[k] === undefined) delete data[k]; });
+    data = _cleanUndefined(data);
     data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
     return db.collection(collection).doc(docId).update(data);
 }
