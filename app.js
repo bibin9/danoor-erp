@@ -1121,32 +1121,63 @@ function deleteInvoice(id) {
 }
 
 // ==================== INVOICE TEMPLATES ====================
-// Populate the template dropdown on the invoice modal
+// Populate the dropdown with (a) saved templates and (b) recent invoices to copy from.
+// Values are prefixed: "tpl:<id>" for a saved template, "inv:<id>" for a recent invoice.
 function renderInvoiceTemplateBar() {
     const sel = document.getElementById('invTemplateSelect');
     if (!sel) return;
     const templates = (appData.invoiceTemplates || []).slice()
         .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const recent = (appData.invoices || [])
+        .filter(i => i.status !== 'Cancelled')
+        .slice()
+        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+        .slice(0, 40);
     const cur = sel.value;
-    sel.innerHTML = '<option value="">— Start blank / pick a template —</option>' +
-        templates.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+    let html = '<option value="">— Start blank / pick a template —</option>';
+    if (templates.length) {
+        html += '<optgroup label="My Templates">' +
+            templates.map(t => `<option value="tpl:${t.id}">${esc(t.name)}</option>`).join('') +
+            '</optgroup>';
+    }
+    if (recent.length) {
+        html += '<optgroup label="Copy from a recent invoice">' +
+            recent.map(i => {
+                const label = (i.number || '') + ' — ' + (i.title || i.customerName || 'Invoice');
+                return `<option value="inv:${i.id}">${esc(label)}</option>`;
+            }).join('') +
+            '</optgroup>';
+    }
+    sel.innerHTML = html;
     sel.value = cur;
-    // Hide the "Auto-create" button once templates exist
     const seedBtn = document.getElementById('invSeedTemplatesBtn');
     if (seedBtn) seedBtn.style.display = templates.length ? 'none' : '';
 }
 
-// Fill the invoice form from a saved template (all fields stay editable)
-function applyInvoiceTemplate(id) {
-    if (!id) return;
-    const t = (appData.invoiceTemplates || []).find(x => x.id === id);
-    if (!t) return;
-    if (t.title) document.getElementById('invTitle').value = t.title;
-    const rows = (t.lines && t.lines.length) ? t.lines : [{ desc: '', govt: 0, svc: 0, qty: 1 }];
+// Fill the invoice line items into the form (shared by template + invoice copy).
+function _fillInvoiceLines(lines, title) {
+    if (title) document.getElementById('invTitle').value = title;
+    const rows = (lines && lines.length) ? lines : [{ desc: '', govt: 0, svc: 0, qty: 1 }];
     document.getElementById('invLineItemsBody').innerHTML = rows.map(l =>
         '<tr>' + getInvLineRowHtml(l.desc || '', l.qty || 1, l.govt || 0, l.svc || 0) + '</tr>'
     ).join('');
     calcInvoiceTotal();
+}
+
+// Fill the form from either a saved template ("tpl:id") or a recent invoice ("inv:id").
+function applyInvoiceTemplate(val) {
+    if (!val) return;
+    if (val.indexOf('inv:') === 0) {
+        const inv = (appData.invoices || []).find(x => x.id === val.slice(4));
+        if (!inv) return;
+        _fillInvoiceLines(_linesToTemplate(inv), inv.title || '');
+        showToast('Copied line items from ' + (inv.number || 'invoice') + ' — edit as needed', 'success');
+        return;
+    }
+    const id = val.indexOf('tpl:') === 0 ? val.slice(4) : val;
+    const t = (appData.invoiceTemplates || []).find(x => x.id === id);
+    if (!t) return;
+    _fillInvoiceLines((t.lines && t.lines.length) ? t.lines : null, t.title || '');
     showToast('Template "' + (t.name || '') + '" loaded — edit anything you need', 'success');
 }
 
@@ -1173,8 +1204,9 @@ function saveInvoiceAsTemplate() {
 
 function deleteSelectedTemplate() {
     const sel = document.getElementById('invTemplateSelect');
-    const id = sel ? sel.value : '';
-    if (!id) { showToast('Pick a template to delete first', 'error'); return; }
+    const val = sel ? sel.value : '';
+    if (!val || val.indexOf('tpl:') !== 0) { showToast('Pick one of your saved templates to delete', 'error'); return; }
+    const id = val.slice(4);
     const t = (appData.invoiceTemplates || []).find(x => x.id === id);
     if (!t) return;
     if (!confirm('Delete template "' + (t.name || '') + '"?')) return;
