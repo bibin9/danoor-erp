@@ -1834,6 +1834,18 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="invEditId">
+                <!-- Quick Template bar -->
+                <div id="invTemplateBar" style="background:#eef7ff;padding:10px 12px;border-radius:8px;border:1px solid #bcdcff;margin-bottom:12px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:200px;">
+                        <label style="color:#1565c0;font-size:12px;font-weight:600;display:block;margin-bottom:4px;"><i class="fas fa-clone"></i> Quick Template</label>
+                        <select id="invTemplateSelect" class="input" onchange="applyInvoiceTemplate(this.value)">
+                            <option value="">— Start blank / pick a template —</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="saveInvoiceAsTemplate()" title="Save the current line items as a reusable template"><i class="fas fa-floppy-disk"></i> Save as Template</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="invSeedTemplatesBtn" onclick="seedVisaTemplates()" title="Auto-create New/Renewal Visa templates for Dubai, Sharjah & Abu Dhabi from your invoice history"><i class="fas fa-wand-magic-sparkles"></i> Auto-create Visa Templates</button>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="deleteSelectedTemplate()" title="Delete the selected template" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-trash"></i></button>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Invoice Number</label>

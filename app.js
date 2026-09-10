@@ -1070,6 +1070,8 @@ function resetInvoiceForm() {
     document.getElementById('invLineItemsBody').innerHTML = '<tr>' + getInvLineRowHtml('', 1, 0, 0) + '</tr>';
     if (document.getElementById('invPaidAmount')) document.getElementById('invPaidAmount').value = '';
     if (document.getElementById('invPartialRow')) document.getElementById('invPartialRow').style.display = 'none';
+    if (document.getElementById('invTemplateSelect')) document.getElementById('invTemplateSelect').value = '';
+    renderInvoiceTemplateBar();
     calcInvoiceTotal();
 }
 
@@ -1116,6 +1118,130 @@ function editInvoice(id) {
 function deleteInvoice(id) {
     if (!confirm('Delete this invoice?')) return;
     fsDelete('invoices', id).then(() => showToast('Invoice deleted'));
+}
+
+// ==================== INVOICE TEMPLATES ====================
+// Populate the template dropdown on the invoice modal
+function renderInvoiceTemplateBar() {
+    const sel = document.getElementById('invTemplateSelect');
+    if (!sel) return;
+    const templates = (appData.invoiceTemplates || []).slice()
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Start blank / pick a template —</option>' +
+        templates.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+    sel.value = cur;
+    // Hide the "Auto-create" button once templates exist
+    const seedBtn = document.getElementById('invSeedTemplatesBtn');
+    if (seedBtn) seedBtn.style.display = templates.length ? 'none' : '';
+}
+
+// Fill the invoice form from a saved template (all fields stay editable)
+function applyInvoiceTemplate(id) {
+    if (!id) return;
+    const t = (appData.invoiceTemplates || []).find(x => x.id === id);
+    if (!t) return;
+    if (t.title) document.getElementById('invTitle').value = t.title;
+    const rows = (t.lines && t.lines.length) ? t.lines : [{ desc: '', govt: 0, svc: 0, qty: 1 }];
+    document.getElementById('invLineItemsBody').innerHTML = rows.map(l =>
+        '<tr>' + getInvLineRowHtml(l.desc || '', l.qty || 1, l.govt || 0, l.svc || 0) + '</tr>'
+    ).join('');
+    calcInvoiceTotal();
+    showToast('Template "' + (t.name || '') + '" loaded — edit anything you need', 'success');
+}
+
+// Save the current invoice line items as a reusable template
+function saveInvoiceAsTemplate() {
+    const lines = [];
+    document.querySelectorAll('#invLineItemsBody tr').forEach(row => {
+        const desc = row.querySelector('.inv-desc').value.trim();
+        const qty  = parseFloat(row.querySelector('.inv-qty').value)  || 1;
+        const govt = parseFloat(row.querySelector('.inv-govt')?.value) || 0;
+        const svc  = parseFloat(row.querySelector('.inv-svc')?.value)  || 0;
+        if (desc) lines.push({ desc, govt, svc, qty });
+    });
+    if (!lines.length) { showToast('Add at least one line item before saving a template', 'error'); return; }
+    const defaultName = (document.getElementById('invTitle').value || '').trim() || 'My Template';
+    const name = prompt('Template name:', defaultName);
+    if (!name || !name.trim()) return;
+    fsAdd('invoiceTemplates', {
+        name: name.trim(),
+        title: (document.getElementById('invTitle').value || name).trim(),
+        lines
+    }).then(() => showToast('Template saved!')).catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
+function deleteSelectedTemplate() {
+    const sel = document.getElementById('invTemplateSelect');
+    const id = sel ? sel.value : '';
+    if (!id) { showToast('Pick a template to delete first', 'error'); return; }
+    const t = (appData.invoiceTemplates || []).find(x => x.id === id);
+    if (!t) return;
+    if (!confirm('Delete template "' + (t.name || '') + '"?')) return;
+    fsDelete('invoiceTemplates', id).then(() => { sel.value = ''; showToast('Template deleted'); });
+}
+
+// Find the most recent (non-cancelled) invoice matching a visa type + emirate,
+// by scanning title + line descriptions. type: 'new' | 'renewal'.
+function _findRecentInvoiceFor(type, emirateKey) {
+    const invs = (appData.invoices || [])
+        .filter(i => i.status !== 'Cancelled')
+        .slice()
+        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    return invs.find(inv => {
+        const hay = ((inv.title || '') + ' ' + (inv.lines || []).map(l => l.desc || '').join(' ')).toLowerCase();
+        if (!hay.includes('visa')) return false;
+        if (!hay.includes(emirateKey)) return false;
+        const isRenew = hay.includes('renew') || hay.includes('renewal');
+        return type === 'renewal' ? isRenew : !isRenew;
+    });
+}
+
+// Convert an invoice's lines into template lines (respecting the govt/svc split
+// and the legacy fallback where an old line only had `price`).
+function _linesToTemplate(inv) {
+    return (inv.lines || []).map(l => {
+        let govt = l.govt || 0, svc = l.svc || 0;
+        if (!l.split && govt === 0 && (l.price || 0) > 0) { govt = l.price; svc = 0; }
+        return { desc: l.desc || '', govt, svc, qty: l.qty || 1 };
+    });
+}
+
+// Auto-create the 6 visa templates (New/Renewal × Dubai/Sharjah/Abu Dhabi)
+// from the user's real invoice history. Falls back to a blank line when no
+// matching invoice is found for a combination.
+function seedVisaTemplates() {
+    const existing = appData.invoiceTemplates || [];
+    const combos = [
+        { name: 'New Visa - Dubai',        type: 'new',     emKey: 'dubai',      emirate: 'Dubai' },
+        { name: 'New Visa - Sharjah',      type: 'new',     emKey: 'sharjah',    emirate: 'Sharjah' },
+        { name: 'New Visa - Abu Dhabi',    type: 'new',     emKey: 'abu dhabi',  emirate: 'Abu Dhabi' },
+        { name: 'Renewal Visa - Dubai',    type: 'renewal', emKey: 'dubai',      emirate: 'Dubai' },
+        { name: 'Renewal Visa - Sharjah',  type: 'renewal', emKey: 'sharjah',    emirate: 'Sharjah' },
+        { name: 'Renewal Visa - Abu Dhabi',type: 'renewal', emKey: 'abu dhabi',  emirate: 'Abu Dhabi' },
+    ];
+    let created = 0, fromHistory = 0;
+    const promises = [];
+    combos.forEach(c => {
+        // Skip if a template with this name already exists
+        if (existing.some(t => (t.name || '').toLowerCase() === c.name.toLowerCase())) return;
+        const match = _findRecentInvoiceFor(c.type, c.emKey);
+        const lines = match ? _linesToTemplate(match) : [{ desc: c.name, govt: 0, svc: 0, qty: 1 }];
+        if (match) fromHistory++;
+        created++;
+        promises.push(fsAdd('invoiceTemplates', {
+            name: c.name,
+            title: c.name,
+            type: c.type === 'renewal' ? 'Renewal Visa' : 'New Visa',
+            emirate: c.emirate,
+            lines,
+            source: match ? ('from ' + (match.number || 'history')) : 'blank (no matching invoice found)'
+        }));
+    });
+    if (!created) { showToast('All 6 visa templates already exist', 'success'); return; }
+    Promise.all(promises)
+        .then(() => showToast(created + ' templates created (' + fromHistory + ' from your invoice history). Edit any to fine-tune.', 'success'))
+        .catch(e => showToast('Error: ' + e.message, 'error'));
 }
 
 function previewInvoice(id) {
@@ -3278,9 +3404,10 @@ function exportAllData(silent) {
         inventory: appData.inventory, employees: appData.employees, expenses: appData.expenses,
         journalEntries: appData.journalEntries, payrollRuns: appData.payrollRuns,
         cashMemos: appData.cashMemos, itemMaster: appData.itemMaster,
-        loans: appData.loans, tasks: appData.tasks, coa: appData.coa,
+        loans: appData.loans, tasks: appData.tasks,
+        invoiceTemplates: appData.invoiceTemplates, coa: appData.coa,
         exportDate: new Date().toISOString(),
-        appVersion: 'v49'
+        appVersion: 'v57'
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
