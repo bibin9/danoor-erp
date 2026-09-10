@@ -970,6 +970,11 @@ function saveInvoice() {
         if (desc && qty > 0) lines.push({ desc, qty, govt, svc, price, split: true, total: (govt + svc) * qty });
     });
     if (!lines.length) { _endSave(); return showToast('Add at least one line item', 'error'); }
+    if (!customerId) {
+        _endSave();
+        const el = document.getElementById('invCustomer'); if (el) el.focus();
+        return showToast('Please select a Customer', 'error');
+    }
     const invTitle = (document.getElementById('invTitle').value || '').trim();
     if (!invTitle) {
         _endSave();
