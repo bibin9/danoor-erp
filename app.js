@@ -970,6 +970,12 @@ function saveInvoice() {
         if (desc && qty > 0) lines.push({ desc, qty, govt, svc, price, split: true, total: (govt + svc) * qty });
     });
     if (!lines.length) { _endSave(); return showToast('Add at least one line item', 'error'); }
+    const invTitle = (document.getElementById('invTitle').value || '').trim();
+    if (!invTitle) {
+        _endSave();
+        const el = document.getElementById('invTitle'); if (el) el.focus();
+        return showToast('Invoice Title / Subject is required', 'error');
+    }
     const totals = calcInvoiceTotal();
     const autoNumber = (s.invPrefix || 'INV-') + (s.invNext || 1001);
     const enteredNumber = (document.getElementById('invNumber').value || '').trim();
@@ -1155,13 +1161,17 @@ function renderInvoiceTemplateBar() {
 }
 
 // Fill the invoice line items into the form (shared by template + invoice copy).
-function _fillInvoiceLines(lines, title) {
-    if (title) document.getElementById('invTitle').value = title;
+// Always clears the Title — the user must enter a fresh title for each invoice.
+function _fillInvoiceLines(lines) {
+    document.getElementById('invTitle').value = '';
     const rows = (lines && lines.length) ? lines : [{ desc: '', govt: 0, svc: 0, qty: 1 }];
     document.getElementById('invLineItemsBody').innerHTML = rows.map(l =>
         '<tr>' + getInvLineRowHtml(l.desc || '', l.qty || 1, l.govt || 0, l.svc || 0) + '</tr>'
     ).join('');
     calcInvoiceTotal();
+    // Nudge the user to fill the mandatory title
+    const titleEl = document.getElementById('invTitle');
+    if (titleEl) setTimeout(() => titleEl.focus(), 50);
 }
 
 // Fill the form from either a saved template ("tpl:id") or a recent invoice ("inv:id").
@@ -1170,15 +1180,15 @@ function applyInvoiceTemplate(val) {
     if (val.indexOf('inv:') === 0) {
         const inv = (appData.invoices || []).find(x => x.id === val.slice(4));
         if (!inv) return;
-        _fillInvoiceLines(_linesToTemplate(inv), inv.title || '');
-        showToast('Copied line items from ' + (inv.number || 'invoice') + ' — edit as needed', 'success');
+        _fillInvoiceLines(_linesToTemplate(inv));
+        showToast('Copied line items from ' + (inv.number || 'invoice') + ' — enter a title & edit as needed', 'success');
         return;
     }
     const id = val.indexOf('tpl:') === 0 ? val.slice(4) : val;
     const t = (appData.invoiceTemplates || []).find(x => x.id === id);
     if (!t) return;
-    _fillInvoiceLines((t.lines && t.lines.length) ? t.lines : null, t.title || '');
-    showToast('Template "' + (t.name || '') + '" loaded — edit anything you need', 'success');
+    _fillInvoiceLines((t.lines && t.lines.length) ? t.lines : null);
+    showToast('Template "' + (t.name || '') + '" loaded — enter a title & edit as needed', 'success');
 }
 
 // Save the current invoice line items as a reusable template
@@ -1200,6 +1210,29 @@ function saveInvoiceAsTemplate() {
         title: (document.getElementById('invTitle').value || name).trim(),
         lines
     }).then(() => showToast('Template saved!')).catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
+// Save the current form's line items back into the selected saved template
+function updateSelectedTemplate() {
+    const sel = document.getElementById('invTemplateSelect');
+    const val = sel ? sel.value : '';
+    if (!val || val.indexOf('tpl:') !== 0) { showToast('Select one of your saved templates to update', 'error'); return; }
+    const id = val.slice(4);
+    const t = (appData.invoiceTemplates || []).find(x => x.id === id);
+    if (!t) return;
+    const lines = [];
+    document.querySelectorAll('#invLineItemsBody tr').forEach(row => {
+        const desc = row.querySelector('.inv-desc').value.trim();
+        const qty  = parseFloat(row.querySelector('.inv-qty').value)  || 1;
+        const govt = parseFloat(row.querySelector('.inv-govt')?.value) || 0;
+        const svc  = parseFloat(row.querySelector('.inv-svc')?.value)  || 0;
+        if (desc) lines.push({ desc, govt, svc, qty });
+    });
+    if (!lines.length) { showToast('Add at least one line item first', 'error'); return; }
+    if (!confirm('Update template "' + (t.name || '') + '" with the current line items?')) return;
+    fsUpdate('invoiceTemplates', id, { lines })
+        .then(() => showToast('Template "' + (t.name || '') + '" updated', 'success'))
+        .catch(e => showToast('Error: ' + e.message, 'error'));
 }
 
 function renameSelectedTemplate() {
