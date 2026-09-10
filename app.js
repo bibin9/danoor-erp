@@ -1202,6 +1202,23 @@ function saveInvoiceAsTemplate() {
     }).then(() => showToast('Template saved!')).catch(e => showToast('Error: ' + e.message, 'error'));
 }
 
+function renameSelectedTemplate() {
+    const sel = document.getElementById('invTemplateSelect');
+    const val = sel ? sel.value : '';
+    if (!val || val.indexOf('tpl:') !== 0) { showToast('Pick one of your saved templates to rename', 'error'); return; }
+    const id = val.slice(4);
+    const t = (appData.invoiceTemplates || []).find(x => x.id === id);
+    if (!t) return;
+    const newName = prompt('Rename template:', t.name || '');
+    if (newName === null) return;                       // cancelled
+    const trimmed = newName.trim();
+    if (!trimmed) { showToast('Template name cannot be empty', 'error'); return; }
+    if (trimmed === t.name) return;                     // no change
+    fsUpdate('invoiceTemplates', id, { name: trimmed })
+        .then(() => showToast('Template renamed to "' + trimmed + '"', 'success'))
+        .catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
 function deleteSelectedTemplate() {
     const sel = document.getElementById('invTemplateSelect');
     const val = sel ? sel.value : '';
