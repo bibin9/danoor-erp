@@ -1339,7 +1339,7 @@ function previewInvoice(id) {
         type: 'INVOICE', doc: inv, settings: appData.settings,
         extraMeta: `<div>Due: ${inv.dueDate}</div>${inv.title ? '<div>Re: ' + esc(inv.title) + '</div>' : ''}`,
         showGovtSvc: true,
-        footer: (inv.notes ? '<strong>Notes:</strong> ' + esc(inv.notes) + '<br>' : '') + '<em>Tax invoice issued per UAE FTA regulations.</em>'
+        footer: (inv.notes ? '<strong>Notes:</strong> ' + esc(inv.notes) : '')
     });
     openModal('printModal');
 }
