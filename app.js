@@ -149,22 +149,7 @@ function openModal(id) {
     if (id === 'quotationModal') { populateCustomerDropdown('quoteCustomer'); populateServicePicker(); }
     if (id === 'purchaseModal') populateSupplierDropdown('poSupplier');
     if (id === 'journalModal') populateAccountDropdowns();
-    if (id === 'expenseModal') { populateSupplierDropdown('expSupplier'); populateExpenseInvoiceDropdown(); }
-}
-
-// Populate the "Link to Invoice" dropdown on the expense form (recent invoices)
-function populateExpenseInvoiceDropdown() {
-    const sel = document.getElementById('expInvoice');
-    if (!sel) return;
-    const cur = sel.value;
-    const invs = (appData.invoices || [])
-        .filter(i => i.status !== 'Cancelled')
-        .slice()
-        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
-        .slice(0, 150);
-    sel.innerHTML = '<option value="">— Not linked —</option>' +
-        invs.map(i => `<option value="${i.id}">${esc((i.number || '') + ' — ' + (i.customerName || '') + (i.title ? ' (' + i.title + ')' : ''))}</option>`).join('');
-    sel.value = cur;
+    if (id === 'expenseModal') populateSupplierDropdown('expSupplier');
 }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
@@ -1843,10 +1828,6 @@ function saveExpense() {
         vatIncl: document.getElementById('expVatIncl').value,
         supplierId: document.getElementById('expSupplier').value
     };
-    const _expInvId = document.getElementById('expInvoice')?.value || '';
-    const _expInv = _expInvId ? (appData.invoices || []).find(i => i.id === _expInvId) : null;
-    expense.invoiceId = _expInvId;
-    expense.invoiceNumber = _expInv ? _expInv.number : '';
     if (expense.amount <= 0) { _endSave(); return showToast('Please enter a valid amount', 'error'); }
     // Process Reference is mandatory for NEW expenses only; existing ones are left as-is.
     if (!editId && !expense.processRef) {
@@ -1878,7 +1859,6 @@ function editExpense(id) {
     openModal('expenseModal');
     setTimeout(() => {
         document.getElementById('expSupplier').value = e.supplierId || '';
-        if (document.getElementById('expInvoice')) document.getElementById('expInvoice').value = e.invoiceId || '';
     }, 100);
 }
 
@@ -1896,7 +1876,6 @@ function resetExpenseForm() {
     document.getElementById('expAmount').value = 0;
     document.getElementById('expVatIncl').value = 'no';
     if (document.getElementById('expSupplier')) document.getElementById('expSupplier').value = '';
-    if (document.getElementById('expInvoice')) document.getElementById('expInvoice').value = '';
     if (document.getElementById('expCategory')) document.getElementById('expCategory').selectedIndex = 0;
     document.getElementById('expenseModalTitle').textContent = 'Record Expense';
     populateProcessRefDatalist();
