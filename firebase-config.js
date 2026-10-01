@@ -179,6 +179,7 @@ const appData = {
     loans: [],
     tasks: [],
     invoiceTemplates: [],
+    processes: [],
     coa: []
 };
 
@@ -259,6 +260,7 @@ function initFirestoreListeners() {
         { name: 'loans', key: 'loans', render: renderLoans },
         { name: 'tasks', key: 'tasks', render: renderTasks },
         { name: 'invoiceTemplates', key: 'invoiceTemplates', render: renderInvoiceTemplateBar },
+        { name: 'processes', key: 'processes', render: populateProcessDropdowns },
     ];
 
     collections.forEach(col => {

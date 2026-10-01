@@ -1904,9 +1904,11 @@
                 <!-- Process / Case Reference — matches this invoice to its recorded expenses -->
                 <div class="form-row" style="background:#eef7ff;padding:10px 12px;border-radius:8px;border:1px solid #bcdcff;margin-bottom:8px;">
                     <div class="form-group" style="flex:2;">
-                        <label style="color:#1565c0;"><i class="fas fa-link"></i> Process / Case Reference <span style="color:#e74c3c;">*</span> <small style="color:var(--text-secondary);font-weight:400;">— use the SAME reference as the expenses for this job to auto-reconcile</small></label>
-                        <input type="text" id="invProcessRef" class="input" list="invProcessList" placeholder="e.g. New Visa - Mohammed" autocomplete="off" oninput="updateInvProcessCostHint()" onchange="updateInvProcessCostHint()">
-                        <datalist id="invProcessList"></datalist>
+                        <label style="color:#1565c0;"><i class="fas fa-link"></i> Process / Case <span style="color:#e74c3c;">*</span> <small style="color:var(--text-secondary);font-weight:400;">— pick the same process as the expenses to auto-reconcile</small></label>
+                        <div style="display:flex;gap:6px;">
+                            <select id="invProcessId" class="input" style="flex:1;" onchange="updateInvProcessCostHint()"><option value="">— Select a process —</option></select>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="openNewProcessModal('invoice')" title="Create a new process/case"><i class="fas fa-plus"></i> New</button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label style="color:#1565c0;">Expenses recorded for this process</label>
@@ -2726,9 +2728,11 @@
                     <input type="text" id="expDesc" class="input" placeholder="Expense description">
                 </div>
                 <div class="form-group">
-                    <label>Process / Case Reference <span style="color:#e74c3c;">*</span> <small style="color:var(--text-secondary);font-weight:400;">— groups every expense of one job (e.g. "New Visa - Mohammed")</small></label>
-                    <input type="text" id="expProcessRef" class="input" list="expProcessList" placeholder="Type a new reference or pick an existing one" autocomplete="off">
-                    <datalist id="expProcessList"></datalist>
+                    <label>Process / Case <span style="color:#e74c3c;">*</span> <small style="color:var(--text-secondary);font-weight:400;">— pick the job this cost belongs to (no typing = no mismatch)</small></label>
+                    <div style="display:flex;gap:6px;">
+                        <select id="expProcessId" class="input" style="flex:1;"><option value="">— Select a process —</option></select>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="openNewProcessModal('expense')" title="Create a new process/case"><i class="fas fa-plus"></i> New</button>
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -2752,6 +2756,61 @@
                 <button class="btn btn-secondary" onclick="closeModal('expenseModal')">Cancel</button>
                 <button class="btn btn-outline" onclick="resetExpenseForm()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-eraser"></i> Clear</button>
                 <button class="btn btn-primary" onclick="saveExpense()">Save Expense</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Process / Case Modal -->
+    <div class="modal-overlay" id="processModal">
+        <div class="modal" style="max-width:460px;">
+            <div class="modal-header">
+                <h3>New Process / Case</h3>
+                <button class="modal-close" onclick="closeModal('processModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="background:#eef7ff;border:1px solid #bcdcff;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#1565c0;">
+                    <i class="fas fa-circle-info"></i> Create a case once (e.g. a visa job for one person). Then pick it on every expense and the invoice — so they always match exactly.
+                </div>
+                <div class="form-group">
+                    <label>Process Name <span style="color:#e74c3c;">*</span></label>
+                    <input type="text" id="procName" class="input" placeholder="e.g. New Visa - Mohammed Ali" autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="procType" class="input">
+                            <option value="">—</option>
+                            <option value="New Visa">New Visa</option>
+                            <option value="Renewal Visa">Renewal Visa</option>
+                            <option value="Visit Visa">Visit Visa</option>
+                            <option value="Visa Cancellation">Visa Cancellation</option>
+                            <option value="New Trade License">New Trade License</option>
+                            <option value="Renewal Trade License">Renewal Trade License</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Emirate</label>
+                        <select id="procEmirate" class="input">
+                            <option value="">—</option>
+                            <option value="Dubai">Dubai</option>
+                            <option value="Sharjah">Sharjah</option>
+                            <option value="Abu Dhabi">Abu Dhabi</option>
+                            <option value="Ajman">Ajman</option>
+                            <option value="Ras Al Khaimah">Ras Al Khaimah</option>
+                            <option value="Fujairah">Fujairah</option>
+                            <option value="Umm Al Quwain">Umm Al Quwain</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Customer (optional)</label>
+                    <select id="procCustomer" class="input"><option value="">— None —</option></select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('processModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveNewProcess()"><i class="fas fa-check"></i> Create &amp; Select</button>
             </div>
         </div>
     </div>

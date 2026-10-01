@@ -981,11 +981,12 @@ function saveInvoice() {
         const el = document.getElementById('invTitle'); if (el) el.focus();
         return showToast('Invoice Title / Subject is required', 'error');
     }
-    // Process Reference is mandatory for NEW invoices only; existing ones are left as-is.
-    if (!editId && !(document.getElementById('invProcessRef')?.value || '').trim()) {
+    // Process / Case is mandatory for NEW invoices only; existing ones are left as-is.
+    const _invProc = _resolveProcessSelect('invProcessId');
+    if (!editId && !_invProc.processId && !_invProc.processName) {
         _endSave();
-        const el = document.getElementById('invProcessRef'); if (el) el.focus();
-        return showToast('Process / Case Reference is required', 'error');
+        const el = document.getElementById('invProcessId'); if (el) el.focus();
+        return showToast('Please select a Process / Case', 'error');
     }
     const totals = calcInvoiceTotal();
     const autoNumber = (s.invPrefix || 'INV-') + (s.invNext || 1001);
@@ -1049,7 +1050,8 @@ function saveInvoice() {
         lines, subtotal: totals.subtotal, vat: totals.vat, vatRate: totals.vatRate, total: totals.total,
         notes: document.getElementById('invNotes').value.trim(),
         linkedQuote: document.getElementById('invLinkedQuote').value || '',
-        processRef: (document.getElementById('invProcessRef')?.value || '').trim(),
+        processId: _invProc.processId,
+        processRef: _invProc.processName,
         payments, paidAmount
     };
     try {
@@ -1089,31 +1091,131 @@ function resetInvoiceForm() {
     if (document.getElementById('invPaidAmount')) document.getElementById('invPaidAmount').value = '';
     if (document.getElementById('invPartialRow')) document.getElementById('invPartialRow').style.display = 'none';
     if (document.getElementById('invTemplateSelect')) document.getElementById('invTemplateSelect').value = '';
-    if (document.getElementById('invProcessRef')) document.getElementById('invProcessRef').value = '';
-    populateInvProcessDatalist();
+    if (document.getElementById('invProcessId')) document.getElementById('invProcessId').value = '';
+    populateProcessDropdowns();
     updateInvProcessCostHint();
     renderInvoiceTemplateBar();
     calcInvoiceTotal();
 }
 
-// Datalist of process references (from both expenses and invoices) for the invoice form
-function populateInvProcessDatalist() {
-    const dl = document.getElementById('invProcessList');
-    if (!dl) return;
-    const refs = [...new Set([
-        ...(appData.expenses || []).map(e => e.processRef).filter(Boolean),
-        ...(appData.invoices || []).map(i => i.processRef).filter(Boolean)
-    ])].sort();
-    dl.innerHTML = refs.map(r => `<option value="${esc(r)}"></option>`).join('');
+// ==================== PROCESS / CASE PICKER (shared by expense + invoice) ====================
+function _processOptionsHtml() {
+    const procs = (appData.processes || []).slice().sort((a, b) => {
+        const ao = a.status === 'Closed' ? 1 : 0, bo = b.status === 'Closed' ? 1 : 0;
+        if (ao !== bo) return ao - bo;
+        return (a.name || '').localeCompare(b.name || '');
+    });
+    return procs.map(p => `<option value="${p.id}">${esc(p.name)}${p.status === 'Closed' ? ' (closed)' : ''}</option>`).join('');
 }
 
-// Live hint: total expenses already recorded for the entered process reference
+// Fill both process dropdowns, preserving the current selection where possible
+function populateProcessDropdowns() {
+    const opts = _processOptionsHtml();
+    ['expProcessId', 'invProcessId'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const cur = sel.value;
+        // Preserve an injected legacy "keep:" option if present
+        const keepOpt = Array.from(sel.options).find(o => o.value.indexOf('keep:') === 0);
+        sel.innerHTML = '<option value="">— Select a process —</option>' + opts + (keepOpt ? `<option value="${esc(keepOpt.value)}">${esc(keepOpt.textContent)}</option>` : '');
+        sel.value = cur;
+    });
+    if (typeof updateInvProcessCostHint === 'function') updateInvProcessCostHint();
+}
+
+// Set a process dropdown when editing a record (handles deleted/legacy processes)
+function _setProcessSelect(selId, processId, processRefText) {
+    populateProcessDropdowns();
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    if (processId) {
+        if (!Array.from(sel.options).some(o => o.value === processId)) {
+            // Process was deleted — keep showing its snapshot name
+            const o = document.createElement('option');
+            o.value = processId; o.textContent = (processRefText || 'process') + ' (removed)';
+            sel.appendChild(o);
+        }
+        sel.value = processId;
+    } else if (processRefText) {
+        // Legacy free-text record (pre pick-list) — preserve its text
+        const o = document.createElement('option');
+        o.value = 'keep:' + processRefText; o.textContent = processRefText + ' (existing)';
+        sel.appendChild(o);
+        sel.value = 'keep:' + processRefText;
+    } else {
+        sel.value = '';
+    }
+}
+
+// Resolve a dropdown value to { processId, processName }
+function _resolveProcessSelect(selId) {
+    const val = document.getElementById(selId)?.value || '';
+    if (val.indexOf('keep:') === 0) return { processId: '', processName: val.slice(5) };
+    if (val) { const p = (appData.processes || []).find(x => x.id === val); return { processId: val, processName: p ? p.name : '' }; }
+    return { processId: '', processName: '' };
+}
+
+let _processReturnContext = null;
+function openNewProcessModal(context) {
+    _processReturnContext = context; // 'expense' | 'invoice'
+    document.getElementById('procName').value = '';
+    document.getElementById('procType').value = '';
+    document.getElementById('procEmirate').value = '';
+    if (typeof populateCustomerDropdown === 'function') populateCustomerDropdown('procCustomer');
+    if (document.getElementById('procCustomer')) document.getElementById('procCustomer').value = '';
+    openModal('processModal');
+    setTimeout(() => { const n = document.getElementById('procName'); if (n) n.focus(); }, 120);
+}
+
+function saveNewProcess() {
+    if (!_beginSave()) return;
+    const name = (document.getElementById('procName').value || '').trim();
+    if (!name) { _endSave(); return showToast('Process name is required', 'error'); }
+    // Prevent duplicate names (case-insensitive) to keep the list clean
+    const dup = (appData.processes || []).find(p => (p.name || '').trim().toLowerCase() === name.toLowerCase());
+    if (dup) {
+        _endSave();
+        closeModal('processModal');
+        const targetId = _processReturnContext === 'invoice' ? 'invProcessId' : 'expProcessId';
+        const sel = document.getElementById(targetId);
+        if (sel) { sel.value = dup.id; if (targetId === 'invProcessId') updateInvProcessCostHint(); }
+        return showToast('That process already exists — selected it for you', 'success');
+    }
+    const custId = document.getElementById('procCustomer')?.value || '';
+    const cust = custId ? (appData.contacts || []).find(c => c.id === custId) : null;
+    const proc = {
+        name,
+        type: document.getElementById('procType').value || '',
+        emirate: document.getElementById('procEmirate').value || '',
+        customerId: custId, customerName: cust ? cust.name : '',
+        status: 'Open'
+    };
+    fsAdd('processes', proc).then(ref => {
+        _endSave();
+        closeModal('processModal');
+        showToast('Process "' + name + '" created & selected', 'success');
+        const targetId = _processReturnContext === 'invoice' ? 'invProcessId' : 'expProcessId';
+        const sel = document.getElementById(targetId);
+        if (sel) {
+            if (!Array.from(sel.options).some(o => o.value === ref.id)) {
+                const o = document.createElement('option'); o.value = ref.id; o.textContent = name; sel.appendChild(o);
+            }
+            sel.value = ref.id;
+            if (targetId === 'invProcessId') updateInvProcessCostHint();
+        }
+    }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
+}
+
+// Live hint: total expenses already recorded for the selected process
 function updateInvProcessCostHint() {
     const el = document.getElementById('invProcessCostHint');
     if (!el) return;
-    const ref = (document.getElementById('invProcessRef')?.value || '').trim().toLowerCase();
-    if (!ref) { el.value = 'AED 0.00'; return; }
-    const matched = (appData.expenses || []).filter(e => (e.processRef || '').trim().toLowerCase() === ref);
+    const { processId, processName } = _resolveProcessSelect('invProcessId');
+    if (!processId && !processName) { el.value = 'AED 0.00'; return; }
+    const nameLc = processName.trim().toLowerCase();
+    const matched = (appData.expenses || []).filter(e =>
+        (processId && e.processId === processId) ||
+        (nameLc && (e.processRef || '').trim().toLowerCase() === nameLc));
     const total = matched.reduce((s, e) => s + (e.amount || 0), 0);
     el.value = 'AED ' + total.toFixed(2) + (matched.length ? '  (' + matched.length + ' expense' + (matched.length !== 1 ? 's' : '') + ')' : '');
 }
@@ -1155,8 +1257,7 @@ function editInvoice(id) {
             document.getElementById('invPaidAmount').value = (inv.status === 'Partial' && paid > 0) ? paid : '';
         }
         onInvStatusChange();
-        if (document.getElementById('invProcessRef')) document.getElementById('invProcessRef').value = inv.processRef || '';
-        populateInvProcessDatalist();
+        _setProcessSelect('invProcessId', inv.processId, inv.processRef);
         updateInvProcessCostHint();
     }, 100);
 }
@@ -1819,21 +1920,23 @@ function renderJournal() {
 function saveExpense() {
     if (!_beginSave()) return;
     const editId = document.getElementById('expEditId').value;
+    const _expProc = _resolveProcessSelect('expProcessId');
     const expense = {
         date: document.getElementById('expDate').value,
         category: document.getElementById('expCategory').value,
         desc: document.getElementById('expDesc').value.trim(),
-        processRef: (document.getElementById('expProcessRef')?.value || '').trim(),
+        processId: _expProc.processId,
+        processRef: _expProc.processName,
         amount: parseFloat(document.getElementById('expAmount').value) || 0,
         vatIncl: document.getElementById('expVatIncl').value,
         supplierId: document.getElementById('expSupplier').value
     };
     if (expense.amount <= 0) { _endSave(); return showToast('Please enter a valid amount', 'error'); }
-    // Process Reference is mandatory for NEW expenses only; existing ones are left as-is.
-    if (!editId && !expense.processRef) {
+    // Process / Case is mandatory for NEW expenses only; existing ones are left as-is.
+    if (!editId && !expense.processId && !expense.processRef) {
         _endSave();
-        const el = document.getElementById('expProcessRef'); if (el) el.focus();
-        return showToast('Process / Case Reference is required', 'error');
+        const el = document.getElementById('expProcessId'); if (el) el.focus();
+        return showToast('Please select a Process / Case', 'error');
     }
     const promise = editId ? fsUpdate('expenses', editId, expense) : fsAdd('expenses', expense);
     promise.then(() => {
@@ -1851,14 +1954,13 @@ function editExpense(id) {
     document.getElementById('expDate').value = e.date;
     document.getElementById('expCategory').value = e.category;
     document.getElementById('expDesc').value = e.desc || '';
-    if (document.getElementById('expProcessRef')) document.getElementById('expProcessRef').value = e.processRef || '';
     document.getElementById('expAmount').value = e.amount;
     document.getElementById('expVatIncl').value = e.vatIncl || 'no';
     document.getElementById('expenseModalTitle').textContent = 'Edit Expense';
-    populateProcessRefDatalist();
     openModal('expenseModal');
     setTimeout(() => {
         document.getElementById('expSupplier').value = e.supplierId || '';
+        _setProcessSelect('expProcessId', e.processId, e.processRef);
     }, 100);
 }
 
@@ -1872,21 +1974,13 @@ function resetExpenseForm() {
     document.getElementById('expEditId').value = '';
     document.getElementById('expDate').value = todayStr;
     document.getElementById('expDesc').value = '';
-    if (document.getElementById('expProcessRef')) document.getElementById('expProcessRef').value = '';
+    if (document.getElementById('expProcessId')) document.getElementById('expProcessId').value = '';
     document.getElementById('expAmount').value = 0;
     document.getElementById('expVatIncl').value = 'no';
     if (document.getElementById('expSupplier')) document.getElementById('expSupplier').value = '';
     if (document.getElementById('expCategory')) document.getElementById('expCategory').selectedIndex = 0;
     document.getElementById('expenseModalTitle').textContent = 'Record Expense';
-    populateProcessRefDatalist();
-}
-
-// Fill the datalist of existing process references (for consistent reuse)
-function populateProcessRefDatalist() {
-    const dl = document.getElementById('expProcessList');
-    if (!dl) return;
-    const refs = [...new Set((appData.expenses || []).map(e => e.processRef).filter(Boolean))].sort();
-    dl.innerHTML = refs.map(r => `<option value="${esc(r)}"></option>`).join('');
+    populateProcessDropdowns();
 }
 
 // ==================== CASH MEMO / ADHOC INCOME ====================
@@ -2021,7 +2115,6 @@ function renderExpenses() {
         procSelect.innerHTML = '<option value="">All Processes</option>' + refs.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
         procSelect.value = cv;
     }
-    populateProcessRefDatalist();
 
     if (_expGrouped) { renderExpensesGrouped(); return; }
 
@@ -2088,13 +2181,14 @@ function renderExpensesGrouped() {
     const groups = {};
     expenses.forEach(e => {
         const key = e.processRef || '(No reference)';
-        if (!groups[key]) groups[key] = { items: [], total: 0, vat: 0, suppliers: new Set(), dates: [], invoiceIds: new Set() };
+        if (!groups[key]) groups[key] = { items: [], total: 0, vat: 0, suppliers: new Set(), dates: [], invoiceIds: new Set(), procIds: new Set() };
         groups[key].items.push(e);
         groups[key].total += (e.amount || 0);
         groups[key].vat += (e.vatIncl === 'yes' ? (e.amount||0) * DEFAULT_VAT_RATE : 0);
         groups[key].suppliers.add(_expSupplierName(e));
         if (e.date) groups[key].dates.push(e.date);
         if (e.invoiceId) groups[key].invoiceIds.add(e.invoiceId);
+        if (e.processId) groups[key].procIds.add(e.processId);
     });
     const keys = Object.keys(groups).sort((a,b) => groups[b].total - groups[a].total);
     if (!keys.length) {
@@ -2115,7 +2209,10 @@ function renderExpensesGrouped() {
         const matchIds = new Set(g.invoiceIds);
         if (k !== '(No reference)') {
             (appData.invoices || []).forEach(i => {
-                if (i.status !== 'Cancelled' && (i.processRef || '').trim().toLowerCase() === k.trim().toLowerCase()) matchIds.add(i.id);
+                if (i.status === 'Cancelled') return;
+                // Match by stable processId (rename-safe) OR by the process-name snapshot
+                if ((i.processId && g.procIds.has(i.processId)) ||
+                    (i.processRef || '').trim().toLowerCase() === k.trim().toLowerCase()) matchIds.add(i.id);
             });
         }
         const invNums = [];
@@ -3741,9 +3838,9 @@ function exportAllData(silent) {
         journalEntries: appData.journalEntries, payrollRuns: appData.payrollRuns,
         cashMemos: appData.cashMemos, itemMaster: appData.itemMaster,
         loans: appData.loans, tasks: appData.tasks,
-        invoiceTemplates: appData.invoiceTemplates, coa: appData.coa,
+        invoiceTemplates: appData.invoiceTemplates, processes: appData.processes, coa: appData.coa,
         exportDate: new Date().toISOString(),
-        appVersion: 'v57'
+        appVersion: 'v65'
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -3797,7 +3894,7 @@ function importBackup() {
                 if (!data.exportDate) { showToast('Invalid backup file', 'error'); return; }
                 if (!confirm('Restore backup from ' + data.exportDate + '?\n\nThis will OVERWRITE all current data. Are you sure?')) return;
                 // Restore each collection
-                const collections = ['contacts','services','quotations','invoices','purchases','inventory','employees','expenses','journalEntries','payrollRuns','cashMemos','itemMaster'];
+                const collections = ['contacts','services','quotations','invoices','purchases','inventory','employees','expenses','journalEntries','payrollRuns','cashMemos','itemMaster','loans','tasks','invoiceTemplates','processes'];
                 let promises = [];
                 // Restore settings
                 if (data.settings) {
