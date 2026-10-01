@@ -1901,6 +1901,18 @@
                         <select id="invLinkedQuote" class="input"><option value="">None</option></select>
                     </div>
                 </div>
+                <!-- Process / Case Reference — matches this invoice to its recorded expenses -->
+                <div class="form-row" style="background:#eef7ff;padding:10px 12px;border-radius:8px;border:1px solid #bcdcff;margin-bottom:8px;">
+                    <div class="form-group" style="flex:2;">
+                        <label style="color:#1565c0;"><i class="fas fa-link"></i> Process / Case Reference <span style="color:#e74c3c;">*</span> <small style="color:var(--text-secondary);font-weight:400;">— use the SAME reference as the expenses for this job to auto-reconcile</small></label>
+                        <input type="text" id="invProcessRef" class="input" list="invProcessList" placeholder="e.g. New Visa - Mohammed" autocomplete="off" oninput="updateInvProcessCostHint()" onchange="updateInvProcessCostHint()">
+                        <datalist id="invProcessList"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label style="color:#1565c0;">Expenses recorded for this process</label>
+                        <input type="text" id="invProcessCostHint" class="input" disabled style="background:#fff;color:#c0392b;font-weight:600;" value="AED 0.00">
+                    </div>
+                </div>
                 <!-- Partial-payment inline row (shown only when status = Partial) -->
                 <div class="form-row" id="invPartialRow" style="display:none; background:#fff8e1; padding:10px 12px; border-radius:8px; border:1px solid #ffe082; margin-bottom:8px;">
                     <div class="form-group">
@@ -2714,7 +2726,7 @@
                     <input type="text" id="expDesc" class="input" placeholder="Expense description">
                 </div>
                 <div class="form-group">
-                    <label>Process / Case Reference <small style="color:var(--text-secondary);font-weight:400;">— groups every expense of one job (e.g. "New Visa - Mohammed")</small></label>
+                    <label>Process / Case Reference <span style="color:#e74c3c;">*</span> <small style="color:var(--text-secondary);font-weight:400;">— groups every expense of one job (e.g. "New Visa - Mohammed")</small></label>
                     <input type="text" id="expProcessRef" class="input" list="expProcessList" placeholder="Type a new reference or pick an existing one" autocomplete="off">
                     <datalist id="expProcessList"></datalist>
                 </div>

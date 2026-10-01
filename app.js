@@ -996,6 +996,12 @@ function saveInvoice() {
         const el = document.getElementById('invTitle'); if (el) el.focus();
         return showToast('Invoice Title / Subject is required', 'error');
     }
+    // Process Reference is mandatory for NEW invoices only; existing ones are left as-is.
+    if (!editId && !(document.getElementById('invProcessRef')?.value || '').trim()) {
+        _endSave();
+        const el = document.getElementById('invProcessRef'); if (el) el.focus();
+        return showToast('Process / Case Reference is required', 'error');
+    }
     const totals = calcInvoiceTotal();
     const autoNumber = (s.invPrefix || 'INV-') + (s.invNext || 1001);
     const enteredNumber = (document.getElementById('invNumber').value || '').trim();
@@ -1058,6 +1064,7 @@ function saveInvoice() {
         lines, subtotal: totals.subtotal, vat: totals.vat, vatRate: totals.vatRate, total: totals.total,
         notes: document.getElementById('invNotes').value.trim(),
         linkedQuote: document.getElementById('invLinkedQuote').value || '',
+        processRef: (document.getElementById('invProcessRef')?.value || '').trim(),
         payments, paidAmount
     };
     try {
@@ -1097,8 +1104,33 @@ function resetInvoiceForm() {
     if (document.getElementById('invPaidAmount')) document.getElementById('invPaidAmount').value = '';
     if (document.getElementById('invPartialRow')) document.getElementById('invPartialRow').style.display = 'none';
     if (document.getElementById('invTemplateSelect')) document.getElementById('invTemplateSelect').value = '';
+    if (document.getElementById('invProcessRef')) document.getElementById('invProcessRef').value = '';
+    populateInvProcessDatalist();
+    updateInvProcessCostHint();
     renderInvoiceTemplateBar();
     calcInvoiceTotal();
+}
+
+// Datalist of process references (from both expenses and invoices) for the invoice form
+function populateInvProcessDatalist() {
+    const dl = document.getElementById('invProcessList');
+    if (!dl) return;
+    const refs = [...new Set([
+        ...(appData.expenses || []).map(e => e.processRef).filter(Boolean),
+        ...(appData.invoices || []).map(i => i.processRef).filter(Boolean)
+    ])].sort();
+    dl.innerHTML = refs.map(r => `<option value="${esc(r)}"></option>`).join('');
+}
+
+// Live hint: total expenses already recorded for the entered process reference
+function updateInvProcessCostHint() {
+    const el = document.getElementById('invProcessCostHint');
+    if (!el) return;
+    const ref = (document.getElementById('invProcessRef')?.value || '').trim().toLowerCase();
+    if (!ref) { el.value = 'AED 0.00'; return; }
+    const matched = (appData.expenses || []).filter(e => (e.processRef || '').trim().toLowerCase() === ref);
+    const total = matched.reduce((s, e) => s + (e.amount || 0), 0);
+    el.value = 'AED ' + total.toFixed(2) + (matched.length ? '  (' + matched.length + ' expense' + (matched.length !== 1 ? 's' : '') + ')' : '');
 }
 
 function editInvoice(id) {
@@ -1138,6 +1170,9 @@ function editInvoice(id) {
             document.getElementById('invPaidAmount').value = (inv.status === 'Partial' && paid > 0) ? paid : '';
         }
         onInvStatusChange();
+        if (document.getElementById('invProcessRef')) document.getElementById('invProcessRef').value = inv.processRef || '';
+        populateInvProcessDatalist();
+        updateInvProcessCostHint();
     }, 100);
 }
 
@@ -1813,6 +1848,12 @@ function saveExpense() {
     expense.invoiceId = _expInvId;
     expense.invoiceNumber = _expInv ? _expInv.number : '';
     if (expense.amount <= 0) { _endSave(); return showToast('Please enter a valid amount', 'error'); }
+    // Process Reference is mandatory for NEW expenses only; existing ones are left as-is.
+    if (!editId && !expense.processRef) {
+        _endSave();
+        const el = document.getElementById('expProcessRef'); if (el) el.focus();
+        return showToast('Process / Case Reference is required', 'error');
+    }
     const promise = editId ? fsUpdate('expenses', editId, expense) : fsAdd('expenses', expense);
     promise.then(() => {
         _endSave();
@@ -2089,14 +2130,22 @@ function renderExpensesGrouped() {
         const dmax = g.dates.length ? g.dates.slice().sort().slice(-1)[0] : '';
         const range = dmin === dmax ? dmin : (dmin + ' → ' + dmax);
         const sup = [...g.suppliers].join(', ');
-        // Billed = sum of distinct linked invoices' totals; Margin = billed − cost
+        // Billed = sum of distinct invoices tied to this process, matched EITHER by a
+        // direct expense→invoice link OR by the invoice carrying the same Process Reference
+        // (so it works when the invoice is created after the expenses). Each invoice once.
+        const matchIds = new Set(g.invoiceIds);
+        if (k !== '(No reference)') {
+            (appData.invoices || []).forEach(i => {
+                if (i.status !== 'Cancelled' && (i.processRef || '').trim().toLowerCase() === k.trim().toLowerCase()) matchIds.add(i.id);
+            });
+        }
         const invNums = [];
         let billed = 0;
-        g.invoiceIds.forEach(id => {
+        matchIds.forEach(id => {
             const inv = (appData.invoices || []).find(i => i.id === id);
             if (inv) { billed += (inv.total || 0); invNums.push(inv.number); }
         });
-        const hasInv = g.invoiceIds.size > 0;
+        const hasInv = matchIds.size > 0;
         const margin = billed - g.total;
         const marginColor = margin >= 0 ? '#27ae60' : '#c0392b';
         const billedCell = hasInv
