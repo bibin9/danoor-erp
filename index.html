@@ -158,6 +158,9 @@
             <a href="#" class="nav-item" data-page="uaeref">
                 <i class="fas fa-building-flag"></i><span>UAE Reference</span>
             </a>
+            <a href="#" class="nav-item" data-page="taxguide">
+                <i class="fas fa-landmark"></i><span>Tax Guide</span>
+            </a>
             <a href="#" class="nav-item" data-page="settings">
                 <i class="fas fa-gear"></i><span>Settings</span>
             </a>
@@ -1605,6 +1608,286 @@
                 </style>
             </section>
 
+            <!-- ==================== UAE TAX GUIDE ==================== -->
+            <section class="page" id="page-taxguide">
+                <div class="page-header">
+                    <h2>UAE Tax Guide</h2>
+                    <button class="btn btn-secondary" onclick="window.print()"><i class="fas fa-print"></i> Print this guide</button>
+                </div>
+
+                <div style="background:#e8f0fe;border:1px solid #90caf9;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#1565c0;line-height:1.6;">
+                    <i class="fas fa-circle-info"></i> <strong>Quick-reference for client conversations.</strong> Figures are based on UAE federal tax law (VAT Decree-Law 8/2017, Corporate Tax Decree-Law 47/2022) and FTA guidance. Official portal: <a href="https://eservices.tax.gov.ae" target="_blank" style="color:#1565c0;text-decoration:underline;">eservices.tax.gov.ae</a> (EmaraTax). Tax rules and e-invoicing timelines change — always confirm the latest on the FTA portal before giving a client a firm commitment. Service fees shown are indicative market averages; set your own pricing.
+                </div>
+
+                <div class="tabs">
+                    <button class="tab active" data-tab="taxVat"><i class="fas fa-percent"></i> VAT</button>
+                    <button class="tab" data-tab="taxCT"><i class="fas fa-building-columns"></i> Corporate Tax</button>
+                    <button class="tab" data-tab="taxEinv"><i class="fas fa-file-invoice"></i> e-Invoicing</button>
+                    <button class="tab" data-tab="taxPortal"><i class="fas fa-user-gear"></i> EmaraTax Portal &amp; Users</button>
+                    <button class="tab" data-tab="taxFees"><i class="fas fa-tags"></i> Our Service Fees</button>
+                </div>
+
+                <!-- ===== VAT TAB ===== -->
+                <div class="tab-content active" id="tab-taxVat">
+                    <div class="card">
+                        <h3>Value Added Tax (VAT) — the basics</h3>
+                        <p style="line-height:1.7;">VAT is a 5% tax on most goods and services in the UAE, introduced on <strong>1 January 2018</strong> under Federal Decree-Law No. 8 of 2017. A registered business charges VAT to its customers (output tax), reclaims VAT it pays to suppliers (input tax), and pays the difference to the Federal Tax Authority (FTA).</p>
+                        <table class="data-table" style="margin-top:10px;">
+                            <thead><tr><th>Rate</th><th>Applies to (examples)</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>5% (Standard)</strong></td><td>Most goods &amp; services — retail, consulting, PRO services, typing, most supplies</td></tr>
+                                <tr><td><strong>0% (Zero-rated)</strong></td><td>Exports outside the GCC, international transport, first sale of new residential property, certain healthcare &amp; education, investment-grade precious metals</td></tr>
+                                <tr><td><strong>Exempt</strong></td><td>Certain financial services, bare land, local passenger transport, residential property (after first supply)</td></tr>
+                            </tbody>
+                        </table>
+                        <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">Zero-rated = you still file it (at 0%) and can reclaim input VAT. Exempt = no VAT charged and generally no input VAT reclaim.</p>
+                    </div>
+
+                    <div class="card">
+                        <h3>Registration thresholds</h3>
+                        <table class="data-table">
+                            <thead><tr><th>Type</th><th>Threshold (past 12 months or next 30 days)</th><th>Action</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>Mandatory</strong></td><td>Taxable supplies &amp; imports exceed <strong>AED 375,000</strong></td><td>Must register</td></tr>
+                                <tr><td><strong>Voluntary</strong></td><td>Taxable supplies/imports or expenses exceed <strong>AED 187,500</strong></td><td>May register</td></tr>
+                                <tr><td>Below voluntary</td><td>Under AED 187,500</td><td>Cannot register</td></tr>
+                            </tbody>
+                        </table>
+                        <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">On approval the FTA issues a 15-digit <strong>TRN (Tax Registration Number)</strong>, which must appear on every tax invoice.</p>
+                    </div>
+
+                    <div class="card">
+                        <h3>Filing &amp; payment</h3>
+                        <ul style="line-height:1.9;padding-left:20px;">
+                            <li><strong>Return (VAT 201):</strong> filed on EmaraTax, usually <strong>quarterly</strong> (some larger businesses file monthly). The FTA sets your tax periods when you register.</li>
+                            <li><strong>Deadline:</strong> by the <strong>28th day of the month following</strong> the tax period end (e.g. Jan–Mar quarter → due 28 April). If the 28th is a weekend/holiday, the next business day.</li>
+                            <li><strong>Payment:</strong> any VAT due must reach the FTA by the same 28th deadline.</li>
+                            <li><strong>Records:</strong> keep for <strong>5 years</strong> (15 years for real-estate records).</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <h3>Common penalties (VAT)</h3>
+                        <table class="data-table">
+                            <thead><tr><th>Violation</th><th>Penalty</th></tr></thead>
+                            <tbody>
+                                <tr><td>Late VAT registration</td><td>AED 10,000</td></tr>
+                                <tr><td>Late return filing</td><td>AED 1,000 (first time); AED 2,000 if repeated within 24 months</td></tr>
+                                <tr><td>Late payment of VAT</td><td>2% of unpaid tax immediately, then 4% monthly (capped at 300%)</td></tr>
+                                <tr><td>Incorrect tax return</td><td>Fixed penalty + percentage of the tax difference</td></tr>
+                                <tr><td>Failure to keep records</td><td>AED 10,000 (first); AED 20,000 (repeat)</td></tr>
+                                <tr><td>Late deregistration</td><td>AED 1,000 per month (max AED 10,000)</td></tr>
+                            </tbody>
+                        </table>
+                        <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">Penalty amounts are set by Cabinet Decision and can be updated — confirm current values on the FTA portal.</p>
+                    </div>
+
+                    <div class="card">
+                        <h3>Deregistration</h3>
+                        <p style="line-height:1.7;">A business must apply to deregister within <strong>20 business days</strong> if it stops making taxable supplies, or if taxable supplies fall below AED 187,500 over 12 months. Voluntary deregistration is possible if supplies are below AED 375,000.</p>
+                    </div>
+                </div>
+
+                <!-- ===== CORPORATE TAX TAB ===== -->
+                <div class="tab-content" id="tab-taxCT">
+                    <div class="card">
+                        <h3>Corporate Tax (CT) — the basics</h3>
+                        <p style="line-height:1.7;">UAE Corporate Tax is a federal tax on business profits under Federal Decree-Law No. 47 of 2022. It applies for financial years starting on or after <strong>1 June 2023</strong>. For a company with a calendar-year financial period (Jan–Dec), the first tax period is <strong>1 Jan 2024 – 31 Dec 2024</strong>.</p>
+                        <table class="data-table" style="margin-top:10px;">
+                            <thead><tr><th>Taxable income</th><th>Rate</th></tr></thead>
+                            <tbody>
+                                <tr><td>Up to AED 375,000</td><td><strong>0%</strong></td></tr>
+                                <tr><td>Above AED 375,000</td><td><strong>9%</strong></td></tr>
+                                <tr><td>Large multinationals (global revenue ≥ EUR 750M)</td><td>15% top-up (DMTT, from 1 Jan 2025)</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="card">
+                        <h3>Registration — everyone must register</h3>
+                        <ul style="line-height:1.9;padding-left:20px;">
+                            <li><strong>All taxable persons must register</strong> for Corporate Tax and get a CT TRN — even if income is below AED 375,000 or the business expects to pay 0%.</li>
+                            <li>Registration is done on <a href="https://eservices.tax.gov.ae" target="_blank">EmaraTax</a>. A business already registered for VAT uses the same EmaraTax account.</li>
+                            <li><strong>Late registration penalty: AED 10,000.</strong></li>
+                            <li>Natural persons (individuals) running a business must register if their annual turnover exceeds <strong>AED 1,000,000</strong>.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <h3>Small Business Relief (SBR) — key for small clients</h3>
+                        <p style="line-height:1.7;">Under Ministerial Decision No. 73 of 2023, a resident business with <strong>revenue of AED 3,000,000 or less</strong> in the current and all previous tax periods can elect <strong>Small Business Relief</strong>. When elected, the business is treated as having <strong>no taxable income → Corporate Tax payable is AED 0</strong>, and files a simplified return.</p>
+                        <ul style="line-height:1.9;padding-left:20px;">
+                            <li>Available for tax periods ending <strong>on or before 31 December 2026</strong>.</li>
+                            <li><strong>Must be elected on the CT return</strong> — it is not automatic.</li>
+                            <li>Registration is still mandatory; SBR only removes the tax, not the filing obligation.</li>
+                        </ul>
+                        <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">Tip: the ERP has a Corporate Tax report (Reports → Corporate Tax) that checks SBR eligibility and drafts the figures.</p>
+                    </div>
+
+                    <div class="card">
+                        <h3>Free Zone businesses</h3>
+                        <p style="line-height:1.7;">A <strong>Qualifying Free Zone Person (QFZP)</strong> can pay <strong>0% on "qualifying income"</strong> and 9% on non-qualifying income, provided it meets conditions (adequate substance, qualifying activities, audited financials, transfer-pricing rules). QFZPs still register and file CT returns.</p>
+                    </div>
+
+                    <div class="card">
+                        <h3>Filing, payment &amp; records</h3>
+                        <ul style="line-height:1.9;padding-left:20px;">
+                            <li><strong>Return &amp; payment deadline:</strong> within <strong>9 months</strong> of the end of the tax period. (FY ending 31 Dec 2024 → due 30 Sep 2025. FY ending 31 Dec 2025 → due 30 Sep 2026.)</li>
+                            <li>One combined return per tax period (no advance/provisional filing).</li>
+                            <li><strong>Records:</strong> keep for <strong>7 years</strong> after the end of the tax period.</li>
+                            <li><strong>Late filing penalty:</strong> AED 500 per month for the first 12 months, then AED 1,000 per month.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- ===== E-INVOICING TAB ===== -->
+                <div class="tab-content" id="tab-taxEinv">
+                    <div class="card">
+                        <h3>UAE e-Invoicing — what's coming</h3>
+                        <p style="line-height:1.7;">The UAE Ministry of Finance is introducing <strong>mandatory electronic invoicing</strong>. An e-invoice is a structured digital invoice (not a PDF or scan) that is exchanged and reported through accredited channels, so the FTA receives invoice data in near real-time.</p>
+                    </div>
+
+                    <div class="card">
+                        <h3>How the model works (5-corner / Peppol)</h3>
+                        <p style="line-height:1.7;">The UAE uses a <strong>Decentralised Continuous Transaction Control and Exchange (DCTCE)</strong> model based on the international <strong>Peppol</strong> framework:</p>
+                        <ol style="line-height:1.9;padding-left:22px;">
+                            <li>The <strong>supplier</strong> creates the invoice in its accounting system.</li>
+                            <li>The supplier's <strong>Accredited Service Provider (ASP)</strong> converts &amp; validates it to the UAE standard.</li>
+                            <li>It is delivered to the <strong>buyer's ASP</strong>, then to the buyer.</li>
+                            <li>The invoice data is <strong>reported to the FTA</strong> at the same time.</li>
+                        </ol>
+                        <p style="font-size:12px;color:var(--text-secondary);margin-top:6px;">Businesses will need to work with an FTA-accredited service provider — not just email a PDF.</p>
+                    </div>
+
+                    <div class="card">
+                        <h3>Timeline (as announced — confirm latest with MoF/FTA)</h3>
+                        <table class="data-table">
+                            <thead><tr><th>Stage</th><th>Indicative timing</th></tr></thead>
+                            <tbody>
+                                <tr><td>Service-provider accreditation &amp; data dictionary</td><td>2024 – 2025</td></tr>
+                                <tr><td>Legislation updates</td><td>2025</td></tr>
+                                <tr><td>Phased go-live (large businesses first, B2B &amp; B2G)</td><td>Phased rollout from 2026 onward</td></tr>
+                            </tbody>
+                        </table>
+                        <p style="font-size:12px;color:var(--danger);margin-top:8px;"><i class="fas fa-triangle-exclamation"></i> The e-invoicing timeline has shifted more than once. Treat dates as indicative and verify the current schedule on the Ministry of Finance / FTA website before advising a client.</p>
+                    </div>
+
+                    <div class="card">
+                        <h3>What clients should do to prepare</h3>
+                        <ul style="line-height:1.9;padding-left:20px;">
+                            <li>Make sure master data is clean — legal name, TRN, address of the business and its customers.</li>
+                            <li>Use accounting software that can export structured invoice data.</li>
+                            <li>Plan to connect to an <strong>Accredited Service Provider</strong> when accreditation opens.</li>
+                            <li>Keep watching MoF/FTA announcements for the mandatory start date for their business size.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- ===== EMARATAX PORTAL & USERS TAB ===== -->
+                <div class="tab-content" id="tab-taxPortal">
+                    <div class="card">
+                        <h3>EmaraTax portal — <a href="https://eservices.tax.gov.ae" target="_blank">eservices.tax.gov.ae</a></h3>
+                        <p style="line-height:1.7;">EmaraTax is the FTA's online portal for all tax services — VAT, Corporate Tax and Excise: registration, returns, payments, refunds, and viewing penalties. Everything below happens here.</p>
+                    </div>
+
+                    <div class="card">
+                        <h3>Step 1 — Create an EmaraTax user account</h3>
+                        <ol style="line-height:1.9;padding-left:22px;">
+                            <li>Go to <a href="https://eservices.tax.gov.ae" target="_blank">eservices.tax.gov.ae</a> and click <strong>Sign Up</strong>.</li>
+                            <li>Enter email, phone number and a password, then verify the email (and OTP).</li>
+                            <li><em>Or</em> click <strong>Login with UAE Pass</strong> to use the national digital identity (fastest option).</li>
+                            <li>Log in — you land on the <strong>Taxable Person</strong> dashboard.</li>
+                        </ol>
+                    </div>
+
+                    <div class="card">
+                        <h3>Step 2 — Create / link the Taxable Person</h3>
+                        <ol style="line-height:1.9;padding-left:22px;">
+                            <li>On the dashboard click <strong>Create</strong> a new Taxable Person (the business), or select an existing one.</li>
+                            <li>Enter the entity details — legal name, trade licence, Emirates ID / passport of owner, contact details.</li>
+                            <li>This Taxable Person profile is then used for all VAT and Corporate Tax registrations and filings.</li>
+                        </ol>
+                    </div>
+
+                    <div class="card">
+                        <h3>Step 3 — Register for VAT and/or Corporate Tax</h3>
+                        <ol style="line-height:1.9;padding-left:22px;">
+                            <li>Open the Taxable Person → choose <strong>Register</strong> under VAT or Corporate Tax.</li>
+                            <li>Complete the application (business activity, turnover, bank details, licence &amp; owner documents) and submit.</li>
+                            <li>On approval the FTA issues the <strong>TRN</strong>. You can then file returns and make payments from the same dashboard.</li>
+                        </ol>
+                    </div>
+
+                    <div class="card">
+                        <h3>Adding more users (delegates / tax agents)</h3>
+                        <p style="line-height:1.7;">A business can give staff or its tax agent access without sharing the main password:</p>
+                        <ul style="line-height:1.9;padding-left:20px;">
+                            <li><strong>Online User management:</strong> in EmaraTax, open <strong>User Authorisation / Manage Users</strong>, invite a person by email and assign a role (e.g. preparer, approver, read-only).</li>
+                            <li><strong>Tax Agent / Agency link:</strong> a registered Tax Agent can request to be linked to the Taxable Person; the owner approves the request in EmaraTax. The agent can then file on the client's behalf.</li>
+                            <li>Each added user logs in with their own EmaraTax / UAE Pass credentials.</li>
+                        </ul>
+                        <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">Exact menu labels change as the FTA updates EmaraTax — the flow (invite by email → assign role → user accepts) stays the same.</p>
+                    </div>
+
+                    <div class="card">
+                        <h3>Documents usually needed</h3>
+                        <ul style="line-height:1.9;padding-left:20px;">
+                            <li>Trade licence (valid)</li>
+                            <li>Owner/partner Emirates ID &amp; passport copies</li>
+                            <li>Memorandum of Association (MOA) / company contract</li>
+                            <li>Contact details &amp; registered address, bank account (IBAN) details</li>
+                            <li>Financial figures — turnover / expenses (and audited financials where applicable)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- ===== SERVICE FEES TAB ===== -->
+                <div class="tab-content" id="tab-taxFees">
+                    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#7a5a00;line-height:1.6;">
+                        <i class="fas fa-circle-info"></i> These are <strong>indicative market averages</strong> for the UAE to help quote clients quickly. Actual pricing depends on transaction volume, complexity and number of entities — set your own rates. FTA government penalties (above) are separate from our service fees.
+                    </div>
+                    <div class="card">
+                        <h3>VAT services</h3>
+                        <table class="data-table">
+                            <thead><tr><th>Service</th><th>Typical fee (AED)</th></tr></thead>
+                            <tbody>
+                                <tr><td>VAT registration (TRN)</td><td>500 – 1,500</td></tr>
+                                <tr><td>VAT return filing — per quarter (simple)</td><td>500 – 1,500</td></tr>
+                                <tr><td>VAT return filing — per quarter (complex / high volume)</td><td>1,500 – 3,500</td></tr>
+                                <tr><td>VAT deregistration</td><td>500 – 1,000</td></tr>
+                                <tr><td>VAT amendment / voluntary disclosure</td><td>750 – 2,500</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h3>Corporate Tax services</h3>
+                        <table class="data-table">
+                            <thead><tr><th>Service</th><th>Typical fee (AED)</th></tr></thead>
+                            <tbody>
+                                <tr><td>Corporate Tax registration (CT TRN)</td><td>500 – 1,500</td></tr>
+                                <tr><td>CT return filing — small business / SBR</td><td>1,500 – 3,500</td></tr>
+                                <tr><td>CT return filing — standard company</td><td>3,500 – 10,000+</td></tr>
+                                <tr><td>CT advisory / assessment / impact study</td><td>2,500 – 10,000+</td></tr>
+                                <tr><td>Transfer pricing documentation (where required)</td><td>on request</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h3>Bookkeeping, e-invoicing &amp; other</h3>
+                        <table class="data-table">
+                            <thead><tr><th>Service</th><th>Typical fee (AED)</th></tr></thead>
+                            <tbody>
+                                <tr><td>Monthly bookkeeping</td><td>500 – 2,500 / month</td></tr>
+                                <tr><td>Accounting + VAT retainer (bundle)</td><td>1,000 – 4,000 / month</td></tr>
+                                <tr><td>e-Invoicing setup / ASP onboarding</td><td>1,000 – 5,000 (one-off) + provider fees</td></tr>
+                                <tr><td>EmaraTax account setup &amp; user linking</td><td>250 – 750</td></tr>
+                                <tr><td>Tax agent representation (per engagement)</td><td>on request</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
             <!-- ==================== SETTINGS ==================== -->
             <section class="page" id="page-settings">
                 <div class="page-header">
@@ -2926,6 +3209,7 @@
             <a href="#" class="mobile-more-item" data-page="itemmaster"><i class="fas fa-list-check"></i> Item Master</a>
             <a href="#" class="mobile-more-item" data-page="services"><i class="fas fa-clipboard-list"></i> Service Catalogue</a>
             <a href="#" class="mobile-more-item" data-page="uaeref"><i class="fas fa-building-flag"></i> UAE Reference</a>
+            <a href="#" class="mobile-more-item" data-page="taxguide"><i class="fas fa-landmark"></i> Tax Guide</a>
             <a href="#" class="mobile-more-item" data-page="settings"><i class="fas fa-gear"></i> Settings</a>
         </div>
     </div>
@@ -3175,7 +3459,8 @@
             purchases: 'Purchase Orders', inventory: 'Inventory', accounting: 'Accounting',
             reports: 'Reports', hr: 'HR & Payroll', contacts: 'Contacts', services: 'Service Catalogue', settings: 'Settings',
             loans: 'Loans & Liabilities', tasks: 'Tasks / Work-in-Progress', itemmaster: 'Item Master',
-            uaeref: 'UAE Reference — Licensing & PRO Services'
+            uaeref: 'UAE Reference — Licensing & PRO Services',
+            taxguide: 'UAE Tax Guide — VAT, Corporate Tax & e-Invoicing'
         };
         document.getElementById('pageTitle').textContent = titleMap[page] || page;
         document.getElementById('sidebar').classList.remove('mobile-open');
