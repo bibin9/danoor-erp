@@ -149,7 +149,22 @@ function openModal(id) {
     if (id === 'quotationModal') { populateCustomerDropdown('quoteCustomer'); populateServicePicker(); }
     if (id === 'purchaseModal') populateSupplierDropdown('poSupplier');
     if (id === 'journalModal') populateAccountDropdowns();
-    if (id === 'expenseModal') populateSupplierDropdown('expSupplier');
+    if (id === 'expenseModal') { populateSupplierDropdown('expSupplier'); populateExpenseInvoiceDropdown(); }
+}
+
+// Populate the "Link to Invoice" dropdown on the expense form (recent invoices)
+function populateExpenseInvoiceDropdown() {
+    const sel = document.getElementById('expInvoice');
+    if (!sel) return;
+    const cur = sel.value;
+    const invs = (appData.invoices || [])
+        .filter(i => i.status !== 'Cancelled')
+        .slice()
+        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+        .slice(0, 150);
+    sel.innerHTML = '<option value="">— Not linked —</option>' +
+        invs.map(i => `<option value="${i.id}">${esc((i.number || '') + ' — ' + (i.customerName || '') + (i.title ? ' (' + i.title + ')' : ''))}</option>`).join('');
+    sel.value = cur;
 }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
@@ -1788,10 +1803,15 @@ function saveExpense() {
         date: document.getElementById('expDate').value,
         category: document.getElementById('expCategory').value,
         desc: document.getElementById('expDesc').value.trim(),
+        processRef: (document.getElementById('expProcessRef')?.value || '').trim(),
         amount: parseFloat(document.getElementById('expAmount').value) || 0,
         vatIncl: document.getElementById('expVatIncl').value,
         supplierId: document.getElementById('expSupplier').value
     };
+    const _expInvId = document.getElementById('expInvoice')?.value || '';
+    const _expInv = _expInvId ? (appData.invoices || []).find(i => i.id === _expInvId) : null;
+    expense.invoiceId = _expInvId;
+    expense.invoiceNumber = _expInv ? _expInv.number : '';
     if (expense.amount <= 0) { _endSave(); return showToast('Please enter a valid amount', 'error'); }
     const promise = editId ? fsUpdate('expenses', editId, expense) : fsAdd('expenses', expense);
     promise.then(() => {
@@ -1809,11 +1829,16 @@ function editExpense(id) {
     document.getElementById('expDate').value = e.date;
     document.getElementById('expCategory').value = e.category;
     document.getElementById('expDesc').value = e.desc || '';
+    if (document.getElementById('expProcessRef')) document.getElementById('expProcessRef').value = e.processRef || '';
     document.getElementById('expAmount').value = e.amount;
     document.getElementById('expVatIncl').value = e.vatIncl || 'no';
     document.getElementById('expenseModalTitle').textContent = 'Edit Expense';
+    populateProcessRefDatalist();
     openModal('expenseModal');
-    setTimeout(() => { document.getElementById('expSupplier').value = e.supplierId || ''; }, 100);
+    setTimeout(() => {
+        document.getElementById('expSupplier').value = e.supplierId || '';
+        if (document.getElementById('expInvoice')) document.getElementById('expInvoice').value = e.invoiceId || '';
+    }, 100);
 }
 
 function deleteExpense(id) {
@@ -1826,11 +1851,22 @@ function resetExpenseForm() {
     document.getElementById('expEditId').value = '';
     document.getElementById('expDate').value = todayStr;
     document.getElementById('expDesc').value = '';
+    if (document.getElementById('expProcessRef')) document.getElementById('expProcessRef').value = '';
     document.getElementById('expAmount').value = 0;
     document.getElementById('expVatIncl').value = 'no';
     if (document.getElementById('expSupplier')) document.getElementById('expSupplier').value = '';
+    if (document.getElementById('expInvoice')) document.getElementById('expInvoice').value = '';
     if (document.getElementById('expCategory')) document.getElementById('expCategory').selectedIndex = 0;
     document.getElementById('expenseModalTitle').textContent = 'Record Expense';
+    populateProcessRefDatalist();
+}
+
+// Fill the datalist of existing process references (for consistent reuse)
+function populateProcessRefDatalist() {
+    const dl = document.getElementById('expProcessList');
+    if (!dl) return;
+    const refs = [...new Set((appData.expenses || []).map(e => e.processRef).filter(Boolean))].sort();
+    dl.innerHTML = refs.map(r => `<option value="${esc(r)}"></option>`).join('');
 }
 
 // ==================== CASH MEMO / ADHOC INCOME ====================
@@ -1921,13 +1957,34 @@ function renderCashMemos() {
     renderPagination('cashMemos', pg.totalPages, pg.total, 'renderCashMemos');
 }
 
-function renderExpenses() {
+// Multi-select state for expense reconciliation
+let _expSelected = new Set();
+let _expGrouped = false;
+
+function _expSupplierName(e) {
+    return e.supplierId ? ((appData.contacts || []).find(c => c.id === e.supplierId)?.name || '—') : '—';
+}
+
+// Returns the filtered + sorted expense list (shared by list + grouped views)
+function _getFilteredExpenses() {
     let expenses = [...(appData.expenses || [])];
     const sortVal = document.getElementById('expenseSort')?.value || 'date-desc';
     const supplierFilter = document.getElementById('expSupplierFilter')?.value || '';
     const categoryFilter = document.getElementById('expCategoryFilter')?.value || '';
+    const processFilter = document.getElementById('expProcessFilter')?.value || '';
     const search = (document.getElementById('expenseSearch')?.value || '').toLowerCase();
+    if (search) expenses = expenses.filter(e =>
+        (e.desc || '').toLowerCase().includes(search) ||
+        (e.category || '').toLowerCase().includes(search) ||
+        (e.processRef || '').toLowerCase().includes(search));
+    if (supplierFilter) expenses = expenses.filter(e => e.supplierId === supplierFilter);
+    if (categoryFilter) expenses = expenses.filter(e => e.category === categoryFilter);
+    if (processFilter)  expenses = expenses.filter(e => (e.processRef || '(No reference)') === processFilter);
+    expenses = filterByDateInputs(expenses, 'date', 'expFromDate', 'expToDate');
+    return sortList(expenses, sortVal);
+}
 
+function renderExpenses() {
     // Populate supplier filter
     const supSelect = document.getElementById('expSupplierFilter');
     if (supSelect) {
@@ -1936,21 +1993,37 @@ function renderExpenses() {
         supSelect.innerHTML = '<option value="">All Suppliers</option>' + suppliers.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
         supSelect.value = cv;
     }
+    // Populate process filter
+    const procSelect = document.getElementById('expProcessFilter');
+    if (procSelect) {
+        const refs = [...new Set((appData.expenses || []).map(e => e.processRef || '(No reference)'))].sort();
+        const cv = procSelect.value;
+        procSelect.innerHTML = '<option value="">All Processes</option>' + refs.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
+        procSelect.value = cv;
+    }
+    populateProcessRefDatalist();
 
-    if (search) expenses = expenses.filter(e => (e.desc || '').toLowerCase().includes(search) || (e.category || '').toLowerCase().includes(search));
-    if (supplierFilter) expenses = expenses.filter(e => e.supplierId === supplierFilter);
-    if (categoryFilter) expenses = expenses.filter(e => e.category === categoryFilter);
-    expenses = filterByDateInputs(expenses, 'date', 'expFromDate', 'expToDate');
-    expenses = sortList(expenses, sortVal);
+    if (_expGrouped) { renderExpensesGrouped(); return; }
 
+    const expenses = _getFilteredExpenses();
     const tbody = document.getElementById('expensesTableBody');
     if (!tbody) return;
-    if (!expenses.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No expenses recorded</td></tr>'; renderPagination('expenses', 0, 0, 'renderExpenses'); return; }
+    if (!expenses.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No expenses recorded</td></tr>';
+        renderPagination('expenses', 0, 0, 'renderExpenses');
+        renderExpenseTotals(expenses);
+        updateExpBulkBar();
+        return;
+    }
     const pg = paginate(expenses, 'expenses');
     tbody.innerHTML = pg.items.map(e => {
         const vatAmt = e.vatIncl === 'yes' ? ((e.amount||0) * DEFAULT_VAT_RATE) : 0;
-        const supplierName = e.supplierId ? ((appData.contacts || []).find(c => c.id === e.supplierId)?.name || '-') : '-';
-        return `<tr><td>${e.date}</td><td>${esc(e.category)}</td><td>${esc(supplierName)}</td><td>${esc(e.desc || '-')}</td>
+        const checked = _expSelected.has(e.id) ? 'checked' : '';
+        return `<tr>
+            <td><input type="checkbox" class="exp-cb" data-id="${e.id}" ${checked} onchange="toggleExpenseSelection('${e.id}')"></td>
+            <td>${e.date}</td><td>${esc(e.category)}</td><td>${esc(_expSupplierName(e))}</td>
+            <td>${e.processRef ? '<span class="status-badge" style="background:#eef2f9;color:#2b6cb5;border:1px solid #cfe0f5">' + esc(e.processRef) + '</span>' : '<span style="color:#bbb;">—</span>'}${e.invoiceNumber ? '<div style="font-size:10px;color:#27ae60;margin-top:3px;"><i class="fas fa-link"></i> ' + esc(e.invoiceNumber) + '</div>' : ''}</td>
+            <td>${esc(e.desc || '-')}</td>
             <td>${fmt(e.amount)}</td><td>${vatAmt > 0 ? fmt(vatAmt) : '-'}</td>
             <td style="white-space:nowrap;">
                 <button class="btn-icon" onclick="editExpense('${e.id}')" title="Edit"><i class="fas fa-edit"></i></button>
@@ -1958,6 +2031,154 @@ function renderExpenses() {
             </td></tr>`;
     }).join('');
     renderPagination('expenses', pg.totalPages, pg.total, 'renderExpenses');
+    renderExpenseTotals(expenses);
+    updateExpBulkBar();
+    // Sync the select-all checkbox
+    const selAll = document.getElementById('expSelectAll');
+    if (selAll) selAll.checked = pg.items.length > 0 && pg.items.every(e => _expSelected.has(e.id));
+}
+
+// Totals footer: grand total of the filtered list + company-wise (supplier) subtotals
+function renderExpenseTotals(expenses) {
+    const el = document.getElementById('expTotalsBar');
+    if (!el) return;
+    if (!expenses.length) { el.innerHTML = ''; return; }
+    const total = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+    const vatTotal = expenses.reduce((s, e) => s + (e.vatIncl === 'yes' ? (e.amount||0) * DEFAULT_VAT_RATE : 0), 0);
+    // Company-wise
+    const bySup = {};
+    expenses.forEach(e => { const n = _expSupplierName(e); bySup[n] = (bySup[n] || 0) + (e.amount || 0); });
+    const supRows = Object.entries(bySup).sort((a,b) => b[1]-a[1])
+        .map(([n,v]) => `<span style="display:inline-block;margin:2px 10px 2px 0;"><span style="color:var(--text-secondary);">${esc(n)}:</span> <strong>${fmt(v)}</strong></span>`).join('');
+    el.innerHTML =
+        `<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 14px;">
+            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center;">
+                <strong style="font-size:14px;">${expenses.length} expense${expenses.length!==1?'s':''} shown</strong>
+                <div style="font-size:15px;"><span style="color:var(--text-secondary);">Total:</span> <strong style="color:#c0392b;">${fmt(total)}</strong>${vatTotal>0?` &nbsp;<span style="color:var(--text-secondary);font-size:12px;">(+VAT ${fmt(vatTotal)})</span>`:''}</div>
+            </div>
+            <div style="margin-top:8px;font-size:12px;border-top:1px dashed var(--border);padding-top:8px;"><span style="color:var(--text-secondary);font-weight:600;">By company: </span>${supRows}</div>
+        </div>`;
+}
+
+// Group-by-process reconciliation view
+function renderExpensesGrouped() {
+    const expenses = _getFilteredExpenses();
+    const tbody = document.getElementById('expensesTableBody');
+    if (!tbody) return;
+    const groups = {};
+    expenses.forEach(e => {
+        const key = e.processRef || '(No reference)';
+        if (!groups[key]) groups[key] = { items: [], total: 0, vat: 0, suppliers: new Set(), dates: [], invoiceIds: new Set() };
+        groups[key].items.push(e);
+        groups[key].total += (e.amount || 0);
+        groups[key].vat += (e.vatIncl === 'yes' ? (e.amount||0) * DEFAULT_VAT_RATE : 0);
+        groups[key].suppliers.add(_expSupplierName(e));
+        if (e.date) groups[key].dates.push(e.date);
+        if (e.invoiceId) groups[key].invoiceIds.add(e.invoiceId);
+    });
+    const keys = Object.keys(groups).sort((a,b) => groups[b].total - groups[a].total);
+    if (!keys.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No expenses recorded</td></tr>';
+        renderPagination('expenses', 0, 0, 'renderExpenses');
+        renderExpenseTotals([]);
+        return;
+    }
+    tbody.innerHTML = keys.map(k => {
+        const g = groups[k];
+        const dmin = g.dates.length ? g.dates.slice().sort()[0] : '';
+        const dmax = g.dates.length ? g.dates.slice().sort().slice(-1)[0] : '';
+        const range = dmin === dmax ? dmin : (dmin + ' → ' + dmax);
+        const sup = [...g.suppliers].join(', ');
+        // Billed = sum of distinct linked invoices' totals; Margin = billed − cost
+        const invNums = [];
+        let billed = 0;
+        g.invoiceIds.forEach(id => {
+            const inv = (appData.invoices || []).find(i => i.id === id);
+            if (inv) { billed += (inv.total || 0); invNums.push(inv.number); }
+        });
+        const hasInv = g.invoiceIds.size > 0;
+        const margin = billed - g.total;
+        const marginColor = margin >= 0 ? '#27ae60' : '#c0392b';
+        const billedCell = hasInv
+            ? `<div style="font-size:11px;"><span style="color:var(--text-secondary);">Billed:</span> <strong>${fmt(billed)}</strong></div>
+               <div style="font-size:11px;"><span style="color:var(--text-secondary);">Margin:</span> <strong style="color:${marginColor};">${fmt(margin)}</strong></div>
+               <div style="font-size:9px;color:#27ae60;"><i class="fas fa-link"></i> ${esc(invNums.join(', '))}</div>`
+            : `<span style="font-size:11px;color:#bbb;">not linked</span>`;
+        return `<tr style="cursor:pointer;" onclick="viewProcessExpenses('${esc(k).replace(/'/g,"\\'")}')" title="Click to see only this process">
+            <td><i class="fas fa-layer-group" style="color:#2b6cb5;"></i></td>
+            <td>${range}</td>
+            <td colspan="2"><strong>${esc(k)}</strong><div style="font-size:10px;color:var(--text-secondary);">${esc(sup)}</div></td>
+            <td>${billedCell}</td>
+            <td>${g.items.length} item${g.items.length!==1?'s':''}</td>
+            <td><span style="color:var(--text-secondary);font-size:10px;">Cost</span><br><strong style="color:#c0392b;">${fmt(g.total)}</strong></td>
+            <td>${g.vat>0?fmt(g.vat):'-'}</td>
+            <td><button class="btn-icon" onclick="event.stopPropagation();viewProcessExpenses('${esc(k).replace(/'/g,"\\'")}')" title="View details"><i class="fas fa-eye"></i></button></td>
+        </tr>`;
+    }).join('');
+    renderPagination('expenses', 1, keys.length, 'renderExpenses');
+    renderExpenseTotals(expenses);
+}
+
+// Clicking a process group -> filter to that process in detailed view
+function viewProcessExpenses(ref) {
+    _expGrouped = false;
+    const btn = document.getElementById('expGroupBtn');
+    if (btn) btn.classList.remove('active');
+    const pf = document.getElementById('expProcessFilter');
+    if (pf) pf.value = ref;
+    setPage('expenses', 1);
+    renderExpenses();
+}
+
+function toggleExpenseGrouping() {
+    _expGrouped = !_expGrouped;
+    const btn = document.getElementById('expGroupBtn');
+    if (btn) {
+        btn.innerHTML = _expGrouped
+            ? '<i class="fas fa-list"></i> Detailed List'
+            : '<i class="fas fa-layer-group"></i> Group by Process';
+        btn.classList.toggle('btn-primary', _expGrouped);
+        btn.classList.toggle('btn-secondary', !_expGrouped);
+    }
+    setPage('expenses', 1);
+    renderExpenses();
+}
+
+// ---- Multi-select ----
+function toggleExpenseSelection(id) {
+    if (_expSelected.has(id)) _expSelected.delete(id); else _expSelected.add(id);
+    updateExpBulkBar();
+}
+
+function toggleAllExpenses(cb) {
+    const pageItems = paginate(_getFilteredExpenses(), 'expenses').items;
+    pageItems.forEach(e => { if (cb.checked) _expSelected.add(e.id); else _expSelected.delete(e.id); });
+    document.querySelectorAll('.exp-cb').forEach(c => { c.checked = cb.checked; });
+    updateExpBulkBar();
+}
+
+function clearExpenseSelection() {
+    _expSelected.clear();
+    document.querySelectorAll('.exp-cb').forEach(c => { c.checked = false; });
+    const selAll = document.getElementById('expSelectAll'); if (selAll) selAll.checked = false;
+    updateExpBulkBar();
+}
+
+function updateExpBulkBar() {
+    const bar = document.getElementById('expBulkBar');
+    if (!bar) return;
+    const sel = (appData.expenses || []).filter(e => _expSelected.has(e.id));
+    if (!sel.length) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    const total = sel.reduce((s, e) => s + (e.amount || 0), 0);
+    const vat = sel.reduce((s, e) => s + (e.vatIncl === 'yes' ? (e.amount||0) * DEFAULT_VAT_RATE : 0), 0);
+    document.getElementById('expBulkInfo').innerHTML =
+        `<i class="fas fa-check-double"></i> ${sel.length} selected &nbsp;•&nbsp; Total: AED ${total.toFixed(2)}${vat>0?` (+VAT ${vat.toFixed(2)})`:''}`;
+    // Company-wise breakdown of the selection
+    const bySup = {};
+    sel.forEach(e => { const n = _expSupplierName(e); bySup[n] = (bySup[n]||0) + (e.amount||0); });
+    const parts = Object.entries(bySup).sort((a,b)=>b[1]-a[1]).map(([n,v]) => `${esc(n)}: AED ${v.toFixed(2)}`);
+    document.getElementById('expBulkBreakdown').textContent = 'By company — ' + parts.join('  |  ');
 }
 
 function renderPnL() {
