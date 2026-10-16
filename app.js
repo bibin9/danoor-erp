@@ -2077,7 +2077,7 @@ function renderJournal() {
 }
 
 // ==================== EXPENSES ====================
-function saveExpense() {
+function saveExpense(keepOpen) {
     if (!_beginSave()) return;
     const editId = document.getElementById('expEditId').value;
     const _expProc = _resolveProcessSelect('expProcessId');
@@ -2101,10 +2101,34 @@ function saveExpense() {
     const promise = editId ? fsUpdate('expenses', editId, expense) : fsAdd('expenses', expense);
     promise.then(() => {
         _endSave();
+        if (keepOpen === true && !editId) {
+            // Repeat flow: keep supplier/category/amount/VAT, clear only the process for the next person
+            const ps = document.getElementById('expProcessId'); if (ps) ps.value = '';
+            showToast('Saved — now pick the next process (same details kept)', 'success');
+            const d = document.querySelector('#expProcessId')?.closest('.ss-wrap')?.querySelector('.ss-display'); if (d) d.focus();
+            return;
+        }
         closeModal('expenseModal');
         resetExpenseForm();
         showToast('Expense saved!');
     }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
+}
+
+// Repeat an expense: same supplier/category/amount/VAT/description, new process, today's date
+function repeatExpense(id) {
+    const e = (appData.expenses || []).find(x => x.id === id);
+    if (!e) return;
+    resetExpenseForm();
+    document.getElementById('expCategory').value = e.category;
+    document.getElementById('expDesc').value = e.desc || '';
+    document.getElementById('expAmount').value = e.amount;
+    document.getElementById('expVatIncl').value = e.vatIncl || 'no';
+    document.getElementById('expenseModalTitle').textContent = 'Repeat Expense — pick the new process';
+    openModal('expenseModal');
+    setTimeout(() => {
+        document.getElementById('expSupplier').value = e.supplierId || '';
+        const d = document.querySelector('#expProcessId')?.closest('.ss-wrap')?.querySelector('.ss-display'); if (d) d.focus();
+    }, 100);
 }
 
 function editExpense(id) {
@@ -2117,6 +2141,7 @@ function editExpense(id) {
     document.getElementById('expAmount').value = e.amount;
     document.getElementById('expVatIncl').value = e.vatIncl || 'no';
     document.getElementById('expenseModalTitle').textContent = 'Edit Expense';
+    _toggleExpAddAnother(false);
     openModal('expenseModal');
     setTimeout(() => {
         document.getElementById('expSupplier').value = e.supplierId || '';
@@ -2129,6 +2154,8 @@ function deleteExpense(id) {
     fsDelete('expenses', id).then(() => showToast('Expense deleted'));
 }
 
+function _toggleExpAddAnother(show) { const b = document.getElementById('expSaveAnotherBtn'); if (b) b.style.display = show ? '' : 'none'; }
+
 function resetExpenseForm() {
     const todayStr = new Date().toISOString().split('T')[0];
     document.getElementById('expEditId').value = '';
@@ -2140,6 +2167,7 @@ function resetExpenseForm() {
     if (document.getElementById('expSupplier')) document.getElementById('expSupplier').value = '';
     if (document.getElementById('expCategory')) document.getElementById('expCategory').selectedIndex = 0;
     document.getElementById('expenseModalTitle').textContent = 'Record Expense';
+    _toggleExpAddAnother(true);
     populateProcessDropdowns();
 }
 
@@ -2299,6 +2327,7 @@ function renderExpenses() {
             <td>${esc(e.desc || '-')}</td>
             <td>${fmt(e.amount)}</td><td>${vatAmt > 0 ? fmt(vatAmt) : '-'}</td>
             <td style="white-space:nowrap;">
+                <button class="btn-icon" onclick="repeatExpense('${e.id}')" title="Repeat this expense for another process"><i class="fas fa-copy"></i></button>
                 <button class="btn-icon" onclick="editExpense('${e.id}')" title="Edit"><i class="fas fa-edit"></i></button>
                 <button class="btn-icon" onclick="deleteExpense('${e.id}')" title="Delete"><i class="fas fa-trash"></i></button>
             </td></tr>`;
