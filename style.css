@@ -942,6 +942,9 @@ select.input { cursor: pointer; }
 
 /* Searchable dropdowns */
 .ss-wrap { position: relative; width: 100%; }
+/* in horizontal filter bars the wrapped dropdown must size like the select did, not take a full row */
+.filter-bar .ss-wrap { width: auto; flex: 0 1 170px; min-width: 130px; }
+@media (max-width: 768px) { .filter-bar .ss-wrap { width: 100%; flex: none; } }
 .ss-hidden { display: none !important; }
 .ss-display { cursor: pointer; min-height: 38px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .ss-display::after { content: "\25BE"; margin-left: auto; padding-left: 8px; color: var(--text-secondary); }
