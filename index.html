@@ -1619,7 +1619,7 @@
                     <button class="btn btn-secondary" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
                 </div>
                 <div style="background:#e8f0fe;border:1px solid #90caf9;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#1565c0;line-height:1.6;">
-                    <i class="fas fa-circle-info"></i> <strong>What is this?</strong> Upload the bank statement (Excel) for a week or a month. The app checks every payment on the statement against the expenses you recorded, and every deposit against customer payments on invoices. Anything that does not match is listed so you can fix it.
+                    <i class="fas fa-circle-info"></i> <strong>What is this?</strong> Upload the bank statement (Excel) for a week or a month. The app checks every payment on the statement against the expenses you recorded. Anything that does not match is listed so you can fix it. (Deposits are shown as a total only, because customers pay in bulk.)
                     <br><strong>Steps:</strong> 1) Choose the Excel file &nbsp;2) Check the column boxes are right &nbsp;3) Click <em>Run Reconciliation</em>.
                     <br><em>Banks usually post a payment the next day, so the date match allows a few days' difference.</em>
                 </div>
@@ -1647,6 +1647,7 @@
                         </div>
                         <div id="bankMapInfo" style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;"></div>
                         <button class="btn btn-primary" onclick="runBankRecon()"><i class="fas fa-play"></i> Run Reconciliation</button>
+                        <button class="btn btn-outline" onclick="clearBankRecon()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-rotate-left"></i> Clear &amp; Start Over</button>
                     </div>
                 </div>
                 <div id="bankReconResult"></div>

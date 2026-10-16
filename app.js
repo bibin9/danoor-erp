@@ -5548,15 +5548,10 @@ function runBankRecon() {
     const pendingExp = [];
     const expItems = (appData.expenses || []).filter(e => e.date >= new Date((_dayNum(minD) - 1) * 86400000).toISOString().slice(0, 10) && e.date <= maxD && !ign.has(e.id))
         .map(e => ({ id: e.id, date: e.date, amts: _expPaidAmounts(e), exp: e, label: e.desc || e.category, ref: e.processRef || '', pending: e.date > lastJudged }));
-    const payItems = [];
-    (appData.invoices || []).forEach(inv => (inv.payments || []).forEach(p => {
-        const id = inv.id + ':' + p.id;
-        if (p.date >= minD && p.date <= maxD && !ign.has(id)) payItems.push({ id, date: p.date, amts: [Math.round((p.amount || 0) * 100) / 100], label: (inv.number || '') + ' — ' + (inv.customerName || ''), ref: p.method || '' });
-    }));
     const outRes = _bankMatchSide(debits, expItems, tol);
     // Expenses on the last statement day may still post after it ends: use them for matching, but never flag them as missing
     outRes.ledgerOnly = outRes.ledgerOnly.filter(l => { if (l.pending) { pendingExp.push(l.exp); return false; } return true; });
-    _bankLast = { out: outRes, inn: _bankMatchSide(credits, payItems, tol), minD, maxD, tol, skipped, pendingExp, debits, credits };
+    _bankLast = { out: outRes, minD, maxD, tol, skipped, pendingExp, debits, credits };
     renderBankRecon();
 }
 
@@ -5576,18 +5571,18 @@ function bankAddExpense(i) {
 
 function renderBankRecon() {
     const R = _bankLast, box = document.getElementById('bankReconResult');
-    const o = R.out, n = R.inn;
+    const o = R.out;
     const sum = a => a.reduce((s, x) => s + x, 0);
     const matchedOut = sum(o.matched.map(m => m.b.amount)) + sum(o.differs.map(m => m.b.amount));
     const totalOut = sum(R.debits.map(d => d.amount)), totalIn = sum(R.credits.map(d => d.amount));
     const tile = (label, val, color, sub) => `<div style="flex:1;min-width:170px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;"><div style="font-size:11px;color:var(--text-secondary);">${label}</div><div style="font-size:20px;font-weight:700;color:${color};">${val}</div><div style="font-size:11px;color:var(--text-secondary);">${sub || ''}</div></div>`;
-    const issues = o.bankOnly.length + o.ledgerOnly.length + o.differs.length + n.bankOnly.length + n.ledgerOnly.length + n.differs.length;
-    const table = (title, color, head, rowsHtml, empty) => `<div style="margin-top:16px;"><h4 style="margin:0 0 6px;color:${color};">${title}</h4>${rowsHtml ? `<div class="table-container"><table class="data-table"><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table></div>` : `<div style="font-size:12px;color:var(--text-secondary);padding:6px 0;">${empty}</div>`}</div>`;
+    const issues = o.bankOnly.length + o.ledgerOnly.length + o.differs.length;
+    const table = (title, color, head, rowsHtml, empty, totalHtml) => `<div style="margin-top:16px;"><h4 style="margin:0 0 6px;color:${color};">${title}${totalHtml ? ` <span style="font-size:13px;font-weight:700;color:var(--text-primary);">— Total ${totalHtml}</span>` : ''}</h4>${rowsHtml ? `<div class="table-container"><table class="data-table"><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody>${totalHtml ? `<tfoot><tr style="font-weight:700;background:#f4f6fa;"><td colspan="${head.length}" style="text-align:right;">Total: ${totalHtml}</td></tr></tfoot>` : ''}</table></div>` : `<div style="font-size:12px;color:var(--text-secondary);padding:6px 0;">${empty}</div>`}</div>`;
     const bankTd = b => `<td>${b.date}</td><td>${esc(b.desc)}${b.card ? `<div style="font-size:10px;color:var(--text-secondary);">card ${esc(b.card)}</div>` : ''}</td><td><strong>${fmt(b.amount)}</strong></td>`;
     let html = `<div style="display:flex;gap:10px;flex-wrap:wrap;">
         ${tile('Statement period', R.minD + ' → ' + R.maxD, 'var(--text-primary)', R.debits.length + ' payments, ' + R.credits.length + ' deposits')}
         ${tile('Payments on statement', fmt(totalOut), '#c0392b', 'matched to expenses: ' + fmt(matchedOut))}
-        ${tile('Deposits on statement', fmt(totalIn), '#27ae60', 'matched to invoice payments: ' + fmt(sum(n.matched.map(m => m.b.amount)) + sum(n.differs.map(m => m.b.amount))))}
+        ${tile('Deposits on statement', fmt(totalIn), '#27ae60', 'not reconciled (customers pay in bulk)')}
         ${tile('Items to review', issues, issues ? '#c0392b' : '#27ae60', issues ? 'see the lists below' : 'everything matches')}
     </div>`;
     const sk = Object.keys(R.skipped);
@@ -5595,20 +5590,25 @@ function renderBankRecon() {
     if (R.pendingExp.length) html += `<div style="margin-top:10px;font-size:12px;color:var(--text-secondary);">${R.pendingExp.length} expense(s) dated on the last statement day are not judged yet — they may post after the statement ends.</div>`;
 
     html += table('Payments on the bank but NOT in your expenses (' + o.bankOnly.length + ')', '#c0392b', ['Bank date', 'Bank details', 'Amount', ''],
-        o.bankOnly.map((b, i) => `<tr>${bankTd(b)}<td><button class="btn btn-sm btn-primary" onclick="bankAddExpense(${i})"><i class="fas fa-plus"></i> Add expense</button></td></tr>`).join(''), 'None — every bank payment has an expense.');
+        o.bankOnly.map((b, i) => `<tr>${bankTd(b)}<td><button class="btn btn-sm btn-primary" onclick="bankAddExpense(${i})"><i class="fas fa-plus"></i> Add expense</button></td></tr>`).join(''), 'None — every bank payment has an expense.', o.bankOnly.length ? fmt(sum(o.bankOnly.map(b => b.amount))) : '');
     html += table('Expenses recorded but NOT on the bank (' + o.ledgerOnly.length + ')', '#e67e22', ['Expense date', 'Description', 'Process', 'Amount', ''],
-        o.ledgerOnly.map(l => `<tr><td>${l.date}</td><td>${esc(l.label)}</td><td>${esc(l.ref)}</td><td><strong>${fmt(l.amts[0])}</strong></td><td><button class="btn btn-sm btn-secondary" onclick="bankMarkNotBank('${l.id}')" title="Paid in cash or another account — hide it from this check">Paid in cash / other</button></td></tr>`).join(''), 'None — every expense in the period is on the bank statement.');
+        o.ledgerOnly.map(l => `<tr><td>${l.date}</td><td>${esc(l.label)}</td><td>${esc(l.ref)}</td><td><strong>${fmt(l.amts[0])}</strong></td><td><button class="btn btn-sm btn-secondary" onclick="bankMarkNotBank('${l.id}')" title="Paid in cash or another account — hide it from this check">Paid in cash / other</button></td></tr>`).join(''), 'None — every expense in the period is on the bank statement.', o.ledgerOnly.length ? fmt(sum(o.ledgerOnly.map(l => l.amts[0]))) : '');
     html += table('Amount differs (' + o.differs.length + ')', '#8e44ad', ['Bank date', 'Bank details', 'Bank amount', 'Expense', 'Your amount', 'Difference'],
-        o.differs.map(d => `<tr>${bankTd(d.b)}<td>${esc(d.l.label)}<div style="font-size:10px;color:var(--text-secondary);">${d.l.date} ${esc(d.l.ref)}</div></td><td>${fmt(d.l.amts[0])}</td><td style="color:#c0392b;font-weight:700;">${fmt(d.diff)}</td></tr>`).join(''), 'None.');
-    html += table('Deposits on the bank with no invoice payment (' + n.bankOnly.length + ')', '#c0392b', ['Bank date', 'Bank details', 'Amount'],
-        n.bankOnly.map(b => `<tr>${bankTd(b)}</tr>`).join(''), 'None.');
-    html += table('Invoice payments recorded but NOT on the bank (' + n.ledgerOnly.length + ')', '#e67e22', ['Payment date', 'Invoice', 'Method', 'Amount', ''],
-        n.ledgerOnly.map(l => `<tr><td>${l.date}</td><td>${esc(l.label)}</td><td>${esc(l.ref)}</td><td><strong>${fmt(l.amts[0])}</strong></td><td><button class="btn btn-sm btn-secondary" onclick="bankMarkNotBank('${l.id}')">Cash / other</button></td></tr>`).join(''), 'None.');
-    html += table('Amount differs on deposits (' + n.differs.length + ')', '#8e44ad', ['Bank date', 'Bank details', 'Bank amount', 'Invoice payment', 'Your amount', 'Difference'],
-        n.differs.map(d => `<tr>${bankTd(d.b)}<td>${esc(d.l.label)}</td><td>${fmt(d.l.amts[0])}</td><td style="color:#c0392b;font-weight:700;">${fmt(d.diff)}</td></tr>`).join(''), 'None.');
-    const mt = o.matched.concat(n.matched);
-    html += `<details style="margin-top:16px;"><summary style="cursor:pointer;font-weight:600;color:#27ae60;">Matched (${mt.length}) — click to show</summary>${mt.length ? `<div class="table-container"><table class="data-table"><thead><tr><th>Bank date</th><th>Bank details</th><th>Amount</th><th>Matched to</th></tr></thead><tbody>${
+        o.differs.map(d => `<tr>${bankTd(d.b)}<td>${esc(d.l.label)}<div style="font-size:10px;color:var(--text-secondary);">${d.l.date} ${esc(d.l.ref)}</div></td><td>${fmt(d.l.amts[0])}</td><td style="color:#c0392b;font-weight:700;">${fmt(d.diff)}</td></tr>`).join(''), 'None.',
+        o.differs.length ? 'bank ' + fmt(sum(o.differs.map(d => d.b.amount))) + ' · yours ' + fmt(sum(o.differs.map(d => d.l.amts[0]))) + ' · difference ' + fmt(sum(o.differs.map(d => d.diff))) : '');
+    const mt = o.matched;
+    html += `<details style="margin-top:16px;"><summary style="cursor:pointer;font-weight:600;color:#27ae60;">Matched (${mt.length}) — Total ${fmt(sum(mt.map(m => m.b.amount)))} — click to show</summary>${mt.length ? `<div class="table-container"><table class="data-table"><thead><tr><th>Bank date</th><th>Bank details</th><th>Amount</th><th>Matched to</th></tr></thead><tbody>${
         mt.map(m => `<tr>${bankTd(m.b)}<td>${m.l.map(l => esc(l.label) + ' (' + l.date + ')').join(' + ')}${m.kind === 'combined' ? ' <span class="status-badge">combined</span>' : ''}</td></tr>`).join('')}</tbody></table></div>` : ''}</details>`;
     html += `<div style="margin-top:14px;font-size:11px;color:var(--text-secondary);">Date tolerance: bank may post up to ${R.tol} day(s) after the expense date. "Paid in cash / other" hides an item on this computer only; <a href="#" onclick="bankResetIgnored();return false;">show hidden items again</a>.</div>`;
-    box.innerHTML = html;
+    box.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><button class="btn btn-outline" onclick="clearBankRecon()" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-rotate-left"></i> Clear &amp; Start Over</button></div>` + html;
+}
+
+// Reset the page so a new statement can be reconciled from scratch (does not change any saved data)
+function clearBankRecon() {
+    _bankGrid = []; _bankHdr = []; _bankHdrRow = -1; _bankLast = null;
+    const f = document.getElementById('bankFile'); if (f) f.value = '';
+    const m = document.getElementById('bankMapBox'); if (m) m.style.display = 'none';
+    const r = document.getElementById('bankReconResult'); if (r) r.innerHTML = '';
+    const t = document.getElementById('bankTol'); if (t) t.value = 3;
+    showToast('Cleared — choose a new statement to start again', 'success');
 }
