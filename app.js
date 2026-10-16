@@ -1168,12 +1168,24 @@ function onInvProcessChange() {
     const { processId, processName } = _resolveProcessSelect('invProcessId');
     const titleEl = document.getElementById('invTitle');
     if (!titleEl || !processId || !processName) return;
+    // Customer chosen on the process fills the invoice customer
+    const proc = (appData.processes || []).find(p => p.id === processId);
+    const custEl = document.getElementById('invCustomer');
+    if (proc && proc.customerId && custEl && custEl.value !== proc.customerId
+        && (appData.contacts || []).some(c => c.id === proc.customerId)) {
+        if (!custEl.value || confirm('This process belongs to "' + (proc.customerName || 'another customer') + '". Change the invoice customer to match?')) custEl.value = proc.customerId;
+    }
     const cur = titleEl.value.trim();
     if (cur && cur !== _invTitleAuto) {
         if (!confirm('Replace the Invoice Title "' + cur + '" with "' + processName + '"?')) return;
     }
     titleEl.value = processName;
     _invTitleAuto = processName;
+}
+
+function onInvProcessChangeAfterEdit(id) {
+    const sel = document.getElementById('invProcessId');
+    if (sel && sel.value === id && document.getElementById('invoiceModal')?.classList.contains('active')) onInvProcessChange();
 }
 
 // ---- Delete a wrongly created process (only when nothing uses it) ----
@@ -1220,9 +1232,30 @@ function onProcTypeChange() {
     nameEl.setSelectionRange(nameEl.value.length, nameEl.value.length);
 }
 
+// ---- Edit an existing process (name, type, emirate, customer) ----
+let _procEditId = '';
+function openEditProcessModal(selId) {
+    const val = document.getElementById(selId)?.value || '';
+    const p = (appData.processes || []).find(x => x.id === val);
+    if (!p) return showToast('Select a process first', 'error');
+    _processReturnContext = selId === 'invProcessId' ? 'invoice' : 'expense';
+    openNewProcessModal(_processReturnContext);
+    _procEditId = p.id;
+    document.getElementById('procModalTitle').textContent = 'Edit Process / Case';
+    document.getElementById('procSaveLabel').textContent = 'Save Changes';
+    document.getElementById('procType').value = p.type || '';
+    document.getElementById('procEmirate').value = p.emirate || '';
+    document.getElementById('procName').value = p.name || '';
+    _procTypePrefix = (p.type && (p.name || '').indexOf(p.type + ' - ') === 0) ? p.type + ' - ' : '';
+    if (document.getElementById('procCustomer')) document.getElementById('procCustomer').value = p.customerId || '';
+}
+
 let _processReturnContext = null;
 function openNewProcessModal(context) {
     _processReturnContext = context; // 'expense' | 'invoice'
+    _procEditId = '';
+    document.getElementById('procModalTitle').textContent = 'New Process / Case';
+    document.getElementById('procSaveLabel').textContent = 'Create & Select';
     document.getElementById('procName').value = '';
     _procTypePrefix = '';
     document.getElementById('procType').value = '';
@@ -1239,7 +1272,7 @@ function saveNewProcess() {
     if (!name) { _endSave(); return showToast('Process name is required', 'error'); }
     if (_procTypePrefix && name === _procTypePrefix.trim().replace(/\s*-$/, '').trim() + ' -') { _endSave(); return showToast('Type the rest of the name after "' + _procTypePrefix + '"', 'error'); }
     // Prevent duplicate names (case-insensitive) to keep the list clean
-    const dup = (appData.processes || []).find(p => (p.name || '').trim().toLowerCase() === name.toLowerCase());
+    const dup = (appData.processes || []).find(p => p.id !== _procEditId && (p.name || '').trim().toLowerCase() === name.toLowerCase());
     if (dup) {
         _endSave();
         closeModal('processModal');
@@ -1250,6 +1283,23 @@ function saveNewProcess() {
     }
     const custId = document.getElementById('procCustomer')?.value || '';
     const cust = custId ? (appData.contacts || []).find(c => c.id === custId) : null;
+    if (_procEditId) {
+        const id = _procEditId, old = (appData.processes || []).find(p => p.id === id) || {};
+        const upd = { name, type: document.getElementById('procType').value || '', emirate: document.getElementById('procEmirate').value || '',
+                      customerId: custId, customerName: cust ? cust.name : '' };
+        // Records keep a name snapshot (used for grouping) — refresh it so a rename never splits a process
+        const ref = [];
+        if (old.name !== name) {
+            (appData.expenses || []).filter(e => e.processId === id).forEach(e => ref.push(fsUpdate('expenses', e.id, { processRef: name })));
+            (appData.invoices || []).filter(i => i.processId === id).forEach(i => ref.push(fsUpdate('invoices', i.id, { processRef: name })));
+        }
+        return Promise.all([fsUpdate('processes', id, upd), ...ref]).then(() => {
+            _endSave(); closeModal('processModal'); _procEditId = '';
+            populateProcessDropdowns();
+            if (typeof onInvProcessChangeAfterEdit === 'function') onInvProcessChangeAfterEdit(id);
+            showToast('Process updated' + (ref.length ? ' (' + ref.length + ' record(s) renamed too)' : ''), 'success');
+        }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
+    }
     const proc = {
         name,
         type: document.getElementById('procType').value || '',
@@ -1268,7 +1318,10 @@ function saveNewProcess() {
                 const o = document.createElement('option'); o.value = ref.id; o.textContent = name; sel.appendChild(o);
             }
             sel.value = ref.id;
-            if (targetId === 'invProcessId') updateInvProcessCostHint();
+            if (targetId === 'invProcessId') {
+                if (!(appData.processes || []).some(p => p.id === ref.id)) (appData.processes = appData.processes || []).push(Object.assign({ id: ref.id }, proc));
+                onInvProcessChange();
+            }
         }
     }).catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
 }

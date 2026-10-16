@@ -2171,6 +2171,7 @@
                         <div style="display:flex;gap:6px;">
                             <select id="invProcessId" class="input" style="flex:1;" onchange="onInvProcessChange()"><option value="">— Select a process —</option></select>
                             <button type="button" class="btn btn-secondary btn-sm" onclick="openNewProcessModal('invoice')" title="Create a new process/case"><i class="fas fa-plus"></i> New</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="openEditProcessModal('invProcessId')" title="Edit the selected process (name, type, emirate, customer)" style="border:1px solid #2b6cb5;color:#2b6cb5;"><i class="fas fa-pen"></i></button>
                             <button type="button" class="btn btn-outline btn-sm" onclick="deleteSelectedProcess('invProcessId')" title="Delete the selected process (only if nothing uses it)" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-trash"></i></button>
                         </div>
                     </div>
@@ -3016,7 +3017,8 @@
                     <div style="display:flex;gap:6px;">
                         <select id="expProcessId" class="input" style="flex:1;"><option value="">— Select a process —</option></select>
                         <button type="button" class="btn btn-secondary btn-sm" onclick="openNewProcessModal('expense')" title="Create a new process/case"><i class="fas fa-plus"></i> New</button>
-                        <button type="button" class="btn btn-outline btn-sm" onclick="deleteSelectedProcess('expProcessId')" title="Delete the selected process (only if nothing uses it)" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-trash"></i></button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="openEditProcessModal('expProcessId')" title="Edit the selected process (name, type, emirate, customer)" style="border:1px solid #2b6cb5;color:#2b6cb5;"><i class="fas fa-pen"></i></button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="deleteSelectedProcess('expProcessId')" title="Delete the selected process (only if nothing uses it)" style="border:1px solid #e74c3c;color:#e74c3c;"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
                 <div class="form-row">
@@ -3049,7 +3051,7 @@
     <div class="modal-overlay" id="processModal">
         <div class="modal" style="max-width:460px;">
             <div class="modal-header">
-                <h3>New Process / Case</h3>
+                <h3 id="procModalTitle">New Process / Case</h3>
                 <button class="modal-close" onclick="closeModal('processModal')">&times;</button>
             </div>
             <div class="modal-body">
@@ -3095,7 +3097,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('processModal')">Cancel</button>
-                <button class="btn btn-primary" onclick="saveNewProcess()"><i class="fas fa-check"></i> Create &amp; Select</button>
+                <button class="btn btn-primary" onclick="saveNewProcess()"><i class="fas fa-check"></i> <span id="procSaveLabel">Create &amp; Select</span></button>
             </div>
         </div>
     </div>
