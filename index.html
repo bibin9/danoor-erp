@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -157,6 +158,9 @@
             </a>
             <a href="#" class="nav-item" data-page="uaeref">
                 <i class="fas fa-building-flag"></i><span>UAE Reference</span>
+            </a>
+            <a href="#" class="nav-item" data-page="bankrecon">
+                <i class="fas fa-scale-balanced"></i><span>Bank Recon</span>
             </a>
             <a href="#" class="nav-item" data-page="taxguide">
                 <i class="fas fa-landmark"></i><span>Tax Guide</span>
@@ -1606,6 +1610,46 @@
                     .ref-actions .btn-email { background:#7e8794; color:#fff; }
                     .ref-actions .btn-email:hover { background:#5a6371; }
                 </style>
+            </section>
+
+            <!-- ==================== BANK RECONCILIATION ==================== -->
+            <section class="page" id="page-bankrecon">
+                <div class="page-header">
+                    <h2>Bank Reconciliation</h2>
+                    <button class="btn btn-secondary" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                </div>
+                <div style="background:#e8f0fe;border:1px solid #90caf9;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#1565c0;line-height:1.6;">
+                    <i class="fas fa-circle-info"></i> <strong>What is this?</strong> Upload the bank statement (Excel) for a week or a month. The app checks every payment on the statement against the expenses you recorded, and every deposit against customer payments on invoices. Anything that does not match is listed so you can fix it.
+                    <br><strong>Steps:</strong> 1) Choose the Excel file &nbsp;2) Check the column boxes are right &nbsp;3) Click <em>Run Reconciliation</em>.
+                    <br><em>Banks usually post a payment the next day, so the date match allows a few days' difference.</em>
+                </div>
+                <div class="card" style="padding:14px;margin-bottom:14px;">
+                    <div class="form-row" style="align-items:flex-end;">
+                        <div class="form-group" style="flex:2;">
+                            <label>Bank statement (.xlsx / .xls / .csv)</label>
+                            <input type="file" id="bankFile" class="input" accept=".xlsx,.xls,.csv" onchange="onBankFile(this)">
+                        </div>
+                        <div class="form-group" style="max-width:170px;">
+                            <label>Date tolerance (days) <small style="color:var(--text-secondary);">bank posts later</small></label>
+                            <input type="number" id="bankTol" class="input" value="3" min="0" max="10">
+                        </div>
+                    </div>
+                    <div id="bankMapBox" style="display:none;">
+                        <div style="font-size:12px;font-weight:600;margin:6px 0;">Columns found in your file — change any that look wrong:</div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Date</label><select id="bmDate" class="input"></select></div>
+                            <div class="form-group"><label>Description</label><select id="bmDesc" class="input"></select></div>
+                            <div class="form-group"><label>Debit / Withdrawal</label><select id="bmDebit" class="input"></select></div>
+                            <div class="form-group"><label>Credit / Deposit</label><select id="bmCredit" class="input"></select></div>
+                            <div class="form-group"><label>Amount (single column)</label><select id="bmAmount" class="input"></select></div>
+                            <div class="form-group"><label>Debit / Credit word</label><select id="bmType" class="input"></select></div>
+                            <div class="form-group"><label>Status</label><select id="bmStatus" class="input"></select></div>
+                        </div>
+                        <div id="bankMapInfo" style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;"></div>
+                        <button class="btn btn-primary" onclick="runBankRecon()"><i class="fas fa-play"></i> Run Reconciliation</button>
+                    </div>
+                </div>
+                <div id="bankReconResult"></div>
             </section>
 
             <!-- ==================== UAE TAX GUIDE ==================== -->
@@ -3214,6 +3258,7 @@
             <a href="#" class="mobile-more-item" data-page="itemmaster"><i class="fas fa-list-check"></i> Item Master</a>
             <a href="#" class="mobile-more-item" data-page="services"><i class="fas fa-clipboard-list"></i> Service Catalogue</a>
             <a href="#" class="mobile-more-item" data-page="uaeref"><i class="fas fa-building-flag"></i> UAE Reference</a>
+            <a href="#" class="mobile-more-item" data-page="bankrecon"><i class="fas fa-scale-balanced"></i> Bank Recon</a>
             <a href="#" class="mobile-more-item" data-page="taxguide"><i class="fas fa-landmark"></i> Tax Guide</a>
             <a href="#" class="mobile-more-item" data-page="settings"><i class="fas fa-gear"></i> Settings</a>
         </div>
@@ -3465,6 +3510,7 @@
             reports: 'Reports', hr: 'HR & Payroll', contacts: 'Contacts', services: 'Service Catalogue', settings: 'Settings',
             loans: 'Loans & Liabilities', tasks: 'Tasks / Work-in-Progress', itemmaster: 'Item Master',
             uaeref: 'UAE Reference — Licensing & PRO Services',
+            bankrecon: 'Bank Reconciliation — match bank statement to expenses',
             taxguide: 'UAE Tax Guide — VAT, Corporate Tax & e-Invoicing'
         };
         document.getElementById('pageTitle').textContent = titleMap[page] || page;
