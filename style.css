@@ -939,3 +939,16 @@ select.input { cursor: pointer; }
     .data-table tbody td { padding: 10px 8px; }
     .modal-close { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
 }
+
+/* Searchable dropdowns */
+.ss-wrap { position: relative; width: 100%; }
+.ss-hidden { display: none !important; }
+.ss-display { cursor: pointer; min-height: 38px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ss-display::after { content: "\25BE"; margin-left: auto; padding-left: 8px; color: var(--text-secondary); }
+.ss-placeholder { color: var(--text-secondary); }
+.ss-panel { position: absolute; left: 0; right: 0; top: 100%; z-index: 3000; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.18); padding: 6px; margin-top: 2px; }
+.ss-list { max-height: 220px; overflow-y: auto; margin-top: 6px; }
+.ss-item { padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.ss-item:hover, .ss-hi { background: #e8f1fc; }
+.ss-sel { font-weight: 600; }
+.ss-empty { padding: 8px 10px; color: var(--text-secondary); font-size: 13px; }

@@ -840,6 +840,7 @@ function saveInvoicePayment() {
     const newPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
     const newStatus = newPaid >= (inv.total || 0) - 0.01 ? 'Paid' : 'Partial';
     fsUpdate('invoices', invoiceId, { payments, status: newStatus, paidAmount: newPaid }).then(() => {
+        _syncProcessStatus(inv.processId, inv.id, newStatus === 'Paid');
         _endSave();
         closeModal('invoicePaymentModal');
         showToast(newStatus === 'Paid' ? '✅ Invoice fully paid!' : `Payment of ${fmt(amount)} recorded!`);
@@ -921,6 +922,7 @@ function confirmBulkSettle() {
         const payments = [...(inv.payments || []), { id: Date.now().toString() + Math.random(), date, amount: outstanding, method, notes }];
         const newPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
         fsUpdate('invoices', inv.id, { payments, status: 'Paid', paidAmount: newPaid }).then(() => {
+            _syncProcessStatus(inv.processId, inv.id, true);
             done++;
             if (done === total && !hasError) {
                 _endSave();
@@ -1063,7 +1065,10 @@ function saveInvoice() {
                 if (invoiceNumber === autoNumber) return incrementCounter('invNext');
             });
         }
-        promise.then(() => { _endSave(); closeModal('invoiceModal'); resetInvoiceForm(); showToast('Invoice saved!'); })
+        promise.then(() => {
+            _syncProcessStatus(_invProc.processId, editId || '', status === 'Paid');
+            if (editingInv && editingInv.processId && editingInv.processId !== _invProc.processId) _syncProcessStatus(editingInv.processId, editId, false);
+            _endSave(); closeModal('invoiceModal'); resetInvoiceForm(); showToast('Invoice saved!'); })
             .catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
     } catch (e) {
         _endSave();
@@ -1082,6 +1087,7 @@ function resetInvoiceForm() {
     document.getElementById('invDueDate').value = dueStr;
     document.getElementById('invCustomer').value = '';
     document.getElementById('invTitle').value = '';
+    _invTitleAuto = '';
     document.getElementById('invStatus').value = 'Draft';
     document.getElementById('invNotes').value = '';
     document.getElementById('invVatRate').value = '0';
@@ -1099,22 +1105,21 @@ function resetInvoiceForm() {
 }
 
 // ==================== PROCESS / CASE PICKER (shared by expense + invoice) ====================
-function _processOptionsHtml() {
-    const procs = (appData.processes || []).slice().sort((a, b) => {
-        const ao = a.status === 'Closed' ? 1 : 0, bo = b.status === 'Closed' ? 1 : 0;
-        if (ao !== bo) return ao - bo;
-        return (a.name || '').localeCompare(b.name || '');
-    });
+function _processOptionsHtml(keepId) {
+    // Closed processes (invoice fully paid) are hidden so the list only shows open jobs.
+    // keepId = a closed process that is currently selected (editing an old record).
+    const procs = (appData.processes || []).filter(p => p.status !== 'Closed' || p.id === keepId)
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     return procs.map(p => `<option value="${p.id}">${esc(p.name)}${p.status === 'Closed' ? ' (closed)' : ''}</option>`).join('');
 }
 
 // Fill both process dropdowns, preserving the current selection where possible
 function populateProcessDropdowns() {
-    const opts = _processOptionsHtml();
     ['expProcessId', 'invProcessId'].forEach(id => {
         const sel = document.getElementById(id);
         if (!sel) return;
         const cur = sel.value;
+        const opts = _processOptionsHtml(cur);
         // Preserve an injected legacy "keep:" option if present
         const keepOpt = Array.from(sel.options).find(o => o.value.indexOf('keep:') === 0);
         sel.innerHTML = '<option value="">— Select a process —</option>' + opts + (keepOpt ? `<option value="${esc(keepOpt.value)}">${esc(keepOpt.textContent)}</option>` : '');
@@ -1130,9 +1135,10 @@ function _setProcessSelect(selId, processId, processRefText) {
     if (!sel) return;
     if (processId) {
         if (!Array.from(sel.options).some(o => o.value === processId)) {
-            // Process was deleted — keep showing its snapshot name
+            // Closed (fully paid) or deleted process — keep showing its name
+            const exists = (appData.processes || []).find(x => x.id === processId);
             const o = document.createElement('option');
-            o.value = processId; o.textContent = (processRefText || 'process') + ' (removed)';
+            o.value = processId; o.textContent = (exists ? exists.name : (processRefText || 'process')) + (exists ? ' (closed)' : ' (removed)');
             sel.appendChild(o);
         }
         sel.value = processId;
@@ -1155,22 +1161,83 @@ function _resolveProcessSelect(selId) {
     return { processId: '', processName: '' };
 }
 
+// ---- Invoice: picking a process fills the Invoice Title ----
+let _invTitleAuto = '';
+function onInvProcessChange() {
+    updateInvProcessCostHint();
+    const { processId, processName } = _resolveProcessSelect('invProcessId');
+    const titleEl = document.getElementById('invTitle');
+    if (!titleEl || !processId || !processName) return;
+    const cur = titleEl.value.trim();
+    if (cur && cur !== _invTitleAuto) {
+        if (!confirm('Replace the Invoice Title "' + cur + '" with "' + processName + '"?')) return;
+    }
+    titleEl.value = processName;
+    _invTitleAuto = processName;
+}
+
+// ---- Delete a wrongly created process (only when nothing uses it) ----
+function deleteSelectedProcess(selId) {
+    const val = document.getElementById(selId)?.value || '';
+    const proc = (appData.processes || []).find(p => p.id === val);
+    if (!proc) return showToast('Select a process first', 'error');
+    const nameLc = (proc.name || '').trim().toLowerCase();
+    const uses = r => r.processId === proc.id || (!r.processId && (r.processRef || '').trim().toLowerCase() === nameLc);
+    const exp = (appData.expenses || []).filter(uses).length;
+    const inv = (appData.invoices || []).filter(uses).length;
+    if (exp || inv) {
+        return showToast('Cannot delete "' + proc.name + '": used by ' + exp + ' expense(s) and ' + inv + ' invoice(s). Edit those first.', 'error');
+    }
+    if (!confirm('Delete process "' + proc.name + '"? Nothing uses it, so this is safe.')) return;
+    fsDelete('processes', proc.id).then(() => {
+        const sel = document.getElementById(selId); if (sel) sel.value = '';
+        populateProcessDropdowns();
+        showToast('Process "' + proc.name + '" deleted', 'success');
+    }).catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
+// ---- Close a process once its invoice is fully Paid (reopen if that is undone) ----
+function _syncProcessStatus(processId, overrideInvId, overrideIsPaid) {
+    if (!processId) return;
+    const proc = (appData.processes || []).find(p => p.id === processId);
+    if (!proc) return;
+    const paid = overrideIsPaid || (appData.invoices || []).some(i => i.id !== overrideInvId && i.processId === processId && i.status === 'Paid');
+    const want = paid ? 'Closed' : 'Open';
+    if ((proc.status || 'Open') !== want) fsUpdate('processes', processId, { status: want }).catch(() => {});
+}
+
+// New Process dialog: choosing the Type starts the name with "Type - "; the user types the rest.
+let _procTypePrefix = '';
+function onProcTypeChange() {
+    const type = document.getElementById('procType').value;
+    const nameEl = document.getElementById('procName');
+    let rest = nameEl.value;
+    if (_procTypePrefix && rest.indexOf(_procTypePrefix) === 0) rest = rest.slice(_procTypePrefix.length);
+    else if (rest.trim() === '') rest = '';
+    _procTypePrefix = type ? type + ' - ' : '';
+    nameEl.value = _procTypePrefix + rest;
+    nameEl.focus();
+    nameEl.setSelectionRange(nameEl.value.length, nameEl.value.length);
+}
+
 let _processReturnContext = null;
 function openNewProcessModal(context) {
     _processReturnContext = context; // 'expense' | 'invoice'
     document.getElementById('procName').value = '';
+    _procTypePrefix = '';
     document.getElementById('procType').value = '';
     document.getElementById('procEmirate').value = '';
     if (typeof populateCustomerDropdown === 'function') populateCustomerDropdown('procCustomer');
     if (document.getElementById('procCustomer')) document.getElementById('procCustomer').value = '';
     openModal('processModal');
-    setTimeout(() => { const n = document.getElementById('procName'); if (n) n.focus(); }, 120);
+    setTimeout(() => { const n = document.getElementById('procType'); if (n) n.focus(); }, 120);
 }
 
 function saveNewProcess() {
     if (!_beginSave()) return;
     const name = (document.getElementById('procName').value || '').trim();
     if (!name) { _endSave(); return showToast('Process name is required', 'error'); }
+    if (_procTypePrefix && name === _procTypePrefix.trim().replace(/\s*-$/, '').trim() + ' -') { _endSave(); return showToast('Type the rest of the name after "' + _procTypePrefix + '"', 'error'); }
     // Prevent duplicate names (case-insensitive) to keep the list clean
     const dup = (appData.processes || []).find(p => (p.name || '').trim().toLowerCase() === name.toLowerCase());
     if (dup) {
@@ -5078,3 +5145,78 @@ function resetMarkup() {
     document.getElementById('mkVat').textContent         = 'AED 0.00';
     document.getElementById('mkTotalIncVat').textContent = 'AED 0.00';
 }
+
+
+// ==================== SEARCHABLE DROPDOWNS (long lists only) ====================
+// Wraps a <select> with a type-to-filter box. The <select> stays the source of truth,
+// so existing code (value, onchange, options refresh) keeps working unchanged.
+function enhanceSearchableSelect(sel) {
+    if (!sel || sel._ss) return;
+    sel._ss = true;
+    const wrap = document.createElement('div');
+    wrap.className = 'ss-wrap';
+    if (sel.style.flex) wrap.style.flex = sel.style.flex;
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+    sel.classList.add('ss-hidden');
+    const disp = document.createElement('div');
+    disp.className = 'input ss-display'; disp.tabIndex = 0;
+    const panel = document.createElement('div');
+    panel.className = 'ss-panel'; panel.style.display = 'none';
+    panel.innerHTML = '<input type="text" class="input ss-search" placeholder="Type to search..." autocomplete="off"><div class="ss-list"></div>';
+    wrap.appendChild(disp); wrap.appendChild(panel);
+    const search = panel.querySelector('.ss-search'), list = panel.querySelector('.ss-list');
+    let hi = 0;
+    const refresh = () => { const o = sel.options[sel.selectedIndex]; disp.textContent = o ? o.textContent : ''; disp.classList.toggle('ss-placeholder', !sel.value); };
+    const items = () => {
+        const q = search.value.trim().toLowerCase();
+        return Array.from(sel.options).filter(o => !q || o.textContent.toLowerCase().includes(q));
+    };
+    const render = () => {
+        const its = items();
+        if (hi >= its.length) hi = Math.max(0, its.length - 1);
+        list.innerHTML = its.length ? '' : '<div class="ss-empty">No match</div>';
+        its.forEach((o, i) => {
+            const d = document.createElement('div');
+            d.className = 'ss-item' + (i === hi ? ' ss-hi' : '') + (o.value === sel.value ? ' ss-sel' : '');
+            d.textContent = o.textContent;
+            d.onmousedown = e => { e.preventDefault(); pick(o.value); };
+            list.appendChild(d);
+        });
+        const h = list.querySelector('.ss-hi'); if (h) h.scrollIntoView({ block: 'nearest' });
+    };
+    const close = () => { panel.style.display = 'none'; };
+    const open = () => { search.value = ''; hi = 0; panel.style.display = 'block'; render(); search.focus(); };
+    const pick = v => { sel.value = v; close(); sel.dispatchEvent(new Event('change', { bubbles: true })); };
+    disp.onclick = () => panel.style.display === 'none' ? open() : close();
+    disp.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); open(); } };
+    search.oninput = () => { hi = 0; render(); };
+    search.onkeydown = e => {
+        const its = items();
+        if (e.key === 'ArrowDown') { e.preventDefault(); hi = Math.min(its.length - 1, hi + 1); render(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); hi = Math.max(0, hi - 1); render(); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (its[hi]) pick(its[hi].value); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); disp.focus(); }
+    };
+    search.onblur = close;
+    // keep the visible text in sync when code sets .value or rebuilds the options
+    const d = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+    Object.defineProperty(sel, 'value', { get() { return d.get.call(sel); }, set(v) { d.set.call(sel, v); refresh(); }, configurable: true });
+    new MutationObserver(refresh).observe(sel, { childList: true });
+    sel.addEventListener('change', refresh);
+    refresh();
+}
+
+const SEARCHABLE_SELECT_IDS = ['invCustomer', 'quoteCustomer', 'taskCustomer', 'procCustomer', 'poSupplier', 'expSupplier',
+    'expCategory', 'svcCategory', 'invProcessId', 'expProcessId', 'quoteServicePicker',
+    'salesCustomerFilter', 'taskCustomerFilter', 'expSupplierFilter', 'expCategoryFilter', 'expProcessFilter'];
+function initSearchableSelects() {
+    SEARCHABLE_SELECT_IDS.forEach(id => enhanceSearchableSelect(document.getElementById(id)));
+    document.querySelectorAll('.inv-item-select').forEach(enhanceSearchableSelect);
+}
+document.addEventListener('DOMContentLoaded', () => {
+    initSearchableSelects();
+    // invoice line-item service pickers are created dynamically
+    const body = document.getElementById('invLineItemsBody');
+    if (body) new MutationObserver(() => body.querySelectorAll('.inv-item-select').forEach(enhanceSearchableSelect)).observe(body, { childList: true, subtree: true });
+});
