@@ -1175,6 +1175,7 @@ function onInvProcessChange() {
         && (appData.contacts || []).some(c => c.id === proc.customerId)) {
         if (!custEl.value || confirm('This process belongs to "' + (proc.customerName || 'another customer') + '". Change the invoice customer to match?')) custEl.value = proc.customerId;
     }
+    _autoLoadTemplateForProcess(proc);
     const cur = titleEl.value.trim();
     if (cur && cur !== _invTitleAuto) {
         if (!confirm('Replace the Invoice Title "' + cur + '" with "' + processName + '"?')) return;
@@ -1186,6 +1187,45 @@ function onInvProcessChange() {
 function onInvProcessChangeAfterEdit(id) {
     const sel = document.getElementById('invProcessId');
     if (sel && sel.value === id && document.getElementById('invoiceModal')?.classList.contains('active')) onInvProcessChange();
+}
+
+// ---- Auto-load the matching invoice template (same Type + Emirate as the process) ----
+// Only fills lines when the invoice lines are still empty, so typed work is never overwritten.
+function _autoLoadTemplateForProcess(proc) {
+    if (!proc || !proc.type) return;
+    const rows = document.querySelectorAll('#invLineItemsBody tr');
+    const untouched = Array.from(rows).every(r =>
+        !(r.querySelector('.inv-desc')?.value || '').trim() &&
+        !(parseFloat(r.querySelector('.inv-govt')?.value) || 0) && !(parseFloat(r.querySelector('.inv-svc')?.value) || 0));
+    if (!untouched) return;
+    const lc = s => (s || '').trim().toLowerCase();
+    const tpls = appData.invoiceTemplates || [];
+    const t = tpls.find(x => lc(x.type) === lc(proc.type) && lc(x.emirate) === lc(proc.emirate))
+          || tpls.find(x => lc(x.name) === lc(proc.type + (proc.emirate ? ' - ' + proc.emirate : '')));
+    if (!t || !(t.lines && t.lines.length)) return;
+    document.getElementById('invLineItemsBody').innerHTML = t.lines.map(l =>
+        '<tr>' + getInvLineRowHtml(l.desc || '', l.qty || 1, l.govt || 0, l.svc || 0) + '</tr>').join('');
+    calcInvoiceTotal();
+    showToast('Loaded template "' + (t.name || '') + '" for this process — edit the fees if needed', 'success');
+}
+
+// ---- Create an invoice straight from a process (Group-by-Process row) ----
+function createInvoiceFromProcess(procKey) {
+    const procs = appData.processes || [];
+    const lc = s => (s || '').trim().toLowerCase();
+    const p = procs.find(x => x.id === procKey) || procs.find(x => lc(x.name) === lc(procKey));
+    if (!p) return showToast('This older record has no managed process yet — edit one of its expenses and pick a process first.', 'error');
+    const existing = (appData.invoices || []).filter(i => i.status !== 'Cancelled' && (i.processId === p.id || lc(i.processRef) === lc(p.name)));
+    if (existing.length && !confirm('"' + p.name + '" already has invoice ' + existing.map(i => i.number).join(', ') + '. Create another one?')) return;
+    resetInvoiceForm();
+    openModal('invoiceModal');
+    populateProcessDropdowns();
+    const sel = document.getElementById('invProcessId');
+    sel.value = p.id;
+    if (sel.value !== p.id) {   // closed process is hidden from the list — add it for this invoice
+        const o = document.createElement('option'); o.value = p.id; o.textContent = p.name + ' (closed)'; sel.appendChild(o); sel.value = p.id;
+    }
+    onInvProcessChange();
 }
 
 // ---- Delete a wrongly created process (only when nothing uses it) ----
@@ -2357,7 +2397,8 @@ function renderExpensesGrouped() {
             <td>${g.items.length} item${g.items.length!==1?'s':''}</td>
             <td><span style="color:var(--text-secondary);font-size:10px;">Cost</span><br><strong style="color:#c0392b;">${fmt(g.total)}</strong></td>
             <td>${g.vat>0?fmt(g.vat):'-'}</td>
-            <td><button class="btn-icon" onclick="event.stopPropagation();viewProcessExpenses('${esc(k).replace(/'/g,"\\'")}')" title="View details"><i class="fas fa-eye"></i></button></td>
+            <td style="white-space:nowrap;"><button class="btn-icon" onclick="event.stopPropagation();viewProcessExpenses('${esc(k).replace(/'/g,"\\'")}')" title="View details"><i class="fas fa-eye"></i></button>
+                ${k !== '(No reference)' ? `<button class="btn-icon" onclick="event.stopPropagation();createInvoiceFromProcess('${esc([...g.procIds][0] || k).replace(/'/g,"\\'")}')" title="Create invoice for this process"><i class="fas fa-file-invoice"></i></button>` : ''}</td>
         </tr>`;
     }).join('');
     renderPagination('expenses', 1, keys.length, 'renderExpenses');
