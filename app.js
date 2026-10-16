@@ -2098,6 +2098,20 @@ function saveExpense(keepOpen) {
         const el = document.getElementById('expProcessId'); if (el) el.focus();
         return showToast('Please select a Process / Case', 'error');
     }
+    // Duplicate warning (new expenses only): same date, amount, category, supplier, description AND process.
+    // A different process is a different job, so it is never flagged.
+    if (!editId) {
+        const lc = s => (s || '').trim().toLowerCase();
+        const dup = (appData.expenses || []).find(x =>
+            x.date === expense.date && Math.abs((x.amount || 0) - expense.amount) < 0.005 &&
+            lc(x.category) === lc(expense.category) && (x.supplierId || '') === (expense.supplierId || '') &&
+            lc(x.desc) === lc(expense.desc) &&
+            ((x.processId && x.processId === expense.processId) || lc(x.processRef) === lc(expense.processRef)));
+        if (dup && !confirm('Possible duplicate: an expense with the same date (' + dup.date + '), amount (' + fmt(dup.amount) + '), category, supplier, description and process already exists.\n\nSave it anyway?')) {
+            _endSave();
+            return;
+        }
+    }
     const promise = editId ? fsUpdate('expenses', editId, expense) : fsAdd('expenses', expense);
     promise.then(() => {
         _endSave();
