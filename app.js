@@ -206,6 +206,21 @@ function saveSettings() {
 }
 
 // ==================== CONTACTS ====================
+// ==================== DUPLICATE GUARD (shared) ====================
+// Blocks saving a record that duplicates an existing one. keyFn builds a comparison key ('' = nothing to check).
+// When editing, a record is only checked if its key actually changed, so old data can still be edited.
+function _dn(s) { return (s == null ? '' : String(s)).trim().toLowerCase().replace(/\s+/g, ' '); }
+function _dupCheck(list, editId, rec, keyFn, msg) {
+    const key = keyFn(rec);
+    if (!key) return false;
+    if (editId) { const old = (list || []).find(x => x.id === editId); if (old && keyFn(old) === key) return false; }
+    const dup = (list || []).find(x => x.id !== editId && keyFn(x) === key);
+    if (!dup) return false;
+    _endSave();
+    showToast('Duplicate not allowed — ' + msg(dup), 'error');
+    return true;
+}
+
 function saveContact() {
     if (!_beginSave()) return;
     const editId = document.getElementById('ctEditId').value;
@@ -224,6 +239,9 @@ function saveContact() {
         balance: 0
     };
     if (!contact.name) { _endSave(); return showToast('Please enter a contact name', 'error'); }
+    if (_dupCheck(appData.contacts, editId, contact, c => _dn(c.name), d => '"' + d.name + '" already exists in Contacts')) return;
+    if (_dupCheck(appData.contacts, editId, contact, c => _dn(c.trn), d => 'TRN ' + d.trn + ' already belongs to "' + d.name + '"')) return;
+    if (_dupCheck(appData.contacts, editId, contact, c => _dn(c.email), d => 'email ' + d.email + ' already belongs to "' + d.name + '"')) return;
 
     const promise = editId ? fsUpdate('contacts', editId, contact) : fsAdd('contacts', contact);
     promise.then(() => {
@@ -323,6 +341,8 @@ function saveService() {
         serviceFee: parseFloat(document.getElementById('svcServiceFee').value) || 0,
     };
     if (!svc.name) { _endSave(); return showToast('Please enter a service name', 'error'); }
+    if (_dupCheck(appData.services, editId, svc, s => _dn(s.name), d => '"' + d.name + '" already exists in the Service Catalogue')) return;
+    if (_dupCheck(appData.services, editId, svc, s => _dn(s.code), d => 'code ' + d.code + ' is already used by "' + d.name + '"')) return;
 
     const promise = editId ? fsUpdate('services', editId, svc) : fsAdd('services', svc);
     promise.then(() => {
@@ -396,6 +416,8 @@ function saveItemMaster() {
         defaultPrice: parseFloat(document.getElementById('imPrice').value) || 0,
     };
     if (!item.name) { _endSave(); return showToast('Please enter an item name', 'error'); }
+    if (_dupCheck(appData.itemMaster, editId, item, i => _dn(i.name), d => '"' + d.name + '" already exists in Item Master')) return;
+    if (_dupCheck(appData.itemMaster, editId, item, i => _dn(i.code), d => 'code ' + d.code + ' is already used by "' + d.name + '"')) return;
     const promise = editId ? fsUpdate('itemMaster', editId, item) : fsAdd('itemMaster', item);
     promise.then(() => {
         _endSave();
@@ -606,6 +628,8 @@ function saveQuotation() {
         terms: document.getElementById('quoteTerms').value.trim()
     };
 
+    if (_dupCheck(appData.quotations, editId, quote, q => _dn(q.number), d => 'quotation number ' + d.number + ' already exists')) return;
+    if (_dupCheck(appData.quotations, editId, quote, q => q.customerId ? [q.customerId, _dn(q.subject), q.date, (q.total || 0).toFixed(2)].join('|') : '', d => 'quotation ' + d.number + ' has the same customer, subject, date and total')) return;
     let promise;
     if (editId) {
         promise = fsUpdate('quotations', editId, quote);
@@ -836,6 +860,9 @@ function saveInvoicePayment() {
     if (!inv) { _endSave(); return; }
     const outstanding = invOutstanding(inv);
     if (amount > outstanding + 0.01) { _endSave(); return showToast('Payment (' + fmt(amount) + ') exceeds outstanding balance of ' + fmt(outstanding), 'error'); }
+    if ((inv.payments || []).some(p => p.date === date && Math.abs((p.amount || 0) - amount) < 0.005 && _dn(p.method) === _dn(method) && _dn(p.notes) === _dn(notes))) {
+        _endSave(); return showToast('Duplicate not allowed — a payment with the same date, amount, method and notes is already recorded (add a note if it is a genuine second payment)', 'error');
+    }
     const payments = [...(inv.payments || []), { id: Date.now().toString(), date, amount, method, notes }];
     const newPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
     const newStatus = newPaid >= (inv.total || 0) - 0.01 ? 'Paid' : 'Partial';
@@ -1056,6 +1083,8 @@ function saveInvoice() {
         processRef: _invProc.processName,
         payments, paidAmount
     };
+    if (_dupCheck(appData.invoices, editId, invoice, i => _dn(i.number), d => 'invoice number ' + d.number + ' already exists')) return;
+    if (_dupCheck(appData.invoices, editId, invoice, i => i.customerId ? [i.customerId, _dn(i.title), (i.total || 0).toFixed(2), i.date, i.processId || _dn(i.processRef)].join('|') : '', d => 'invoice ' + d.number + ' has the same customer, title, date, total and process')) return;
     try {
         let promise;
         if (editId) { promise = fsUpdate('invoices', editId, invoice); }
@@ -1312,14 +1341,18 @@ function saveNewProcess() {
     if (!name) { _endSave(); return showToast('Process name is required', 'error'); }
     if (_procTypePrefix && name === _procTypePrefix.trim().replace(/\s*-$/, '').trim() + ' -') { _endSave(); return showToast('Type the rest of the name after "' + _procTypePrefix + '"', 'error'); }
     // Prevent duplicate names (case-insensitive) to keep the list clean
-    const dup = (appData.processes || []).find(p => p.id !== _procEditId && (p.name || '').trim().toLowerCase() === name.toLowerCase());
+    const dup = (appData.processes || []).find(p => p.id !== _procEditId && (p.name || '').trim().toLowerCase().replace(/\s+/g, ' ') === name.toLowerCase().replace(/\s+/g, ' '));
+    if (dup && _procEditId) {
+        _endSave();
+        return showToast('Duplicate not allowed — a process named "' + dup.name + '" already exists', 'error');
+    }
     if (dup) {
         _endSave();
         closeModal('processModal');
         const targetId = _processReturnContext === 'invoice' ? 'invProcessId' : 'expProcessId';
         const sel = document.getElementById(targetId);
         if (sel) { sel.value = dup.id; if (targetId === 'invProcessId') updateInvProcessCostHint(); }
-        return showToast('That process already exists — selected it for you', 'success');
+        return showToast('Duplicate not allowed — "' + dup.name + '" already exists, so nothing new was created. The existing one is selected for you.', 'error');
     }
     const custId = document.getElementById('procCustomer')?.value || '';
     const cust = custId ? (appData.contacts || []).find(c => c.id === custId) : null;
@@ -1506,6 +1539,7 @@ function saveInvoiceAsTemplate() {
     const defaultName = (document.getElementById('invTitle').value || '').trim() || 'My Template';
     const name = prompt('Template name:', defaultName);
     if (!name || !name.trim()) return;
+    if ((appData.invoiceTemplates || []).some(t => _dn(t.name) === _dn(name))) { showToast('Duplicate not allowed — a template named "' + name.trim() + '" already exists', 'error'); return; }
     fsAdd('invoiceTemplates', {
         name: name.trim(),
         title: (document.getElementById('invTitle').value || name).trim(),
@@ -1548,6 +1582,7 @@ function renameSelectedTemplate() {
     const trimmed = newName.trim();
     if (!trimmed) { showToast('Template name cannot be empty', 'error'); return; }
     if (trimmed === t.name) return;                     // no change
+    if ((appData.invoiceTemplates || []).some(x => x.id !== id && _dn(x.name) === _dn(trimmed))) { showToast('Duplicate not allowed — a template named "' + trimmed + '" already exists', 'error'); return; }
     fsUpdate('invoiceTemplates', id, { name: trimmed })
         .then(() => showToast('Template renamed to "' + trimmed + '"', 'success'))
         .catch(e => showToast('Error: ' + e.message, 'error'));
@@ -1763,6 +1798,8 @@ function savePurchaseOrder() {
         lines, subtotal: totals.subtotal, vat: totals.vat, vatRate: totals.vatRate, total: totals.total,
         notes: document.getElementById('poNotes').value.trim()
     };
+    if (_dupCheck(appData.purchases, editId, po, p => _dn(p.number), d => 'PO number ' + d.number + ' already exists')) return;
+    if (_dupCheck(appData.purchases, editId, po, p => p.supplierId ? [p.supplierId, p.date, (p.total || 0).toFixed(2)].join('|') : '', d => 'PO ' + d.number + ' has the same supplier, date and total')) return;
     let promise;
     if (editId) { promise = fsUpdate('purchases', editId, po); }
     else { promise = fsAdd('purchases', po).then(() => incrementCounter('poNext')); }
@@ -1886,6 +1923,8 @@ function saveInventoryItem() {
         reorder: parseInt(document.getElementById('itemReorder').value) || 10,
     };
     if (!item.name) { _endSave(); return showToast('Please enter an item name', 'error'); }
+    if (_dupCheck(appData.inventory, editId, item, i => _dn(i.name), d => '"' + d.name + '" already exists in Inventory')) return;
+    if (_dupCheck(appData.inventory, editId, item, i => _dn(i.sku), d => 'SKU ' + d.sku + ' is already used by "' + d.name + '"')) return;
     const promise = editId ? fsUpdate('inventory', editId, item) : fsAdd('inventory', item);
     promise.then(() => {
         _endSave();
@@ -2098,20 +2137,10 @@ function saveExpense(keepOpen) {
         const el = document.getElementById('expProcessId'); if (el) el.focus();
         return showToast('Please select a Process / Case', 'error');
     }
-    // Duplicate warning (new expenses only): same date, amount, category, supplier, description AND process.
-    // A different process is a different job, so it is never flagged.
-    if (!editId) {
-        const lc = s => (s || '').trim().toLowerCase();
-        const dup = (appData.expenses || []).find(x =>
-            x.date === expense.date && Math.abs((x.amount || 0) - expense.amount) < 0.005 &&
-            lc(x.category) === lc(expense.category) && (x.supplierId || '') === (expense.supplierId || '') &&
-            lc(x.desc) === lc(expense.desc) &&
-            ((x.processId && x.processId === expense.processId) || lc(x.processRef) === lc(expense.processRef)));
-        if (dup && !confirm('Possible duplicate: an expense with the same date (' + dup.date + '), amount (' + fmt(dup.amount) + '), category, supplier, description and process already exists.\n\nSave it anyway?')) {
-            _endSave();
-            return;
-        }
-    }
+    // Duplicate guard: same date, amount, category, supplier, description AND process. A different process
+    // is a different job, so it is never blocked. (To record a genuine repeat, change the description.)
+    if (_dupCheck(appData.expenses, editId, expense, x => [x.date, (x.amount || 0).toFixed(2), _dn(x.category), x.supplierId || '', _dn(x.desc), x.processId || _dn(x.processRef)].join('|'),
+        d => 'an expense with the same date (' + d.date + '), amount (' + fmt(d.amount) + '), category, supplier, description and process already exists')) return;
     const promise = editId ? fsUpdate('expenses', editId, expense) : fsAdd('expenses', expense);
     promise.then(() => {
         _endSave();
@@ -2205,6 +2234,8 @@ function saveCashMemo() {
     };
     if (memo.amount <= 0) { _endSave(); return showToast('Please enter a valid amount', 'error'); }
     if (!memo.desc) { _endSave(); return showToast('Please enter a description', 'error'); }
+    if (_dupCheck(appData.cashMemos, editId, memo, m => _dn(m.receipt), d => 'receipt ' + d.receipt + ' already exists')) return;
+    if (_dupCheck(appData.cashMemos, editId, memo, m => [m.date, (m.amount || 0).toFixed(2), _dn(m.customer), _dn(m.desc)].join('|'), d => 'a cash memo with the same date, amount, customer and description already exists')) return;
 
     const promise = editId ? fsUpdate('cashMemos', editId, memo) : fsAdd('cashMemos', memo);
     promise.then(() => {
@@ -2573,6 +2604,7 @@ function saveLoan() {
     if (!loan.lenderName) { _endSave(); return showToast('Please enter lender name', 'error'); }
     if (loan.amount <= 0) { _endSave(); return showToast('Please enter a valid amount', 'error'); }
     if (!loan.date) { _endSave(); return showToast('Please enter the date', 'error'); }
+    if (_dupCheck(appData.loans, editId, loan, l => [_dn(l.lenderName), (l.amount || 0).toFixed(2), l.date, _dn(l.purpose)].join('|'), d => 'a loan from "' + d.lenderName + '" with the same amount, date and purpose already exists')) return;
     if (!editId) loan.repayments = [];
     loan.status = editId ? loanStatus({ ...loan, repayments: (appData.loans.find(l => l.id === editId) || {}).repayments || [] }) : 'Outstanding';
 
@@ -2654,6 +2686,9 @@ function saveRepayment() {
     if (!loan) { _endSave(); return; }
     const outstanding = loanOutstanding(loan);
     if (amount > outstanding + 0.01) { _endSave(); return showToast('Payment exceeds outstanding balance of ' + fmt(outstanding), 'error'); }
+    if ((loan.repayments || []).some(r => r.date === date && Math.abs((r.amount || 0) - amount) < 0.005 && _dn(r.notes) === _dn(notes))) {
+        _endSave(); return showToast('Duplicate not allowed — a repayment with the same date, amount and notes is already recorded (add a note if it is genuine)', 'error');
+    }
     const repayments = [...(loan.repayments || []), { id: Date.now().toString(), date, amount, notes }];
     const newOutstanding = loanOutstanding({ ...loan, repayments });
     const newStatus = newOutstanding <= 0 ? 'Paid' : repayments.length > 0 ? 'Partial' : 'Outstanding';
@@ -2764,6 +2799,8 @@ function saveEmployee() {
     };
     emp.totalSalary = emp.basic + emp.housing + emp.transport + emp.other;
     if (!emp.name) { _endSave(); return showToast('Please enter employee name', 'error'); }
+    if (_dupCheck(appData.employees, editId, emp, e => _dn(e.empId), d => 'employee ID ' + d.empId + ' is already used by "' + d.name + '"')) return;
+    if (_dupCheck(appData.employees, editId, emp, e => _dn(e.name), d => '"' + d.name + '" already exists in Employees')) return;
     const promise = editId ? fsUpdate('employees', editId, emp) : fsAdd('employees', emp);
     promise.then(() => {
         _endSave();
@@ -4353,6 +4390,7 @@ function saveTask() {
         completedAt: status === 'Done' ? _todayISO() : ''
     };
 
+    if (_dupCheck(appData.tasks, editId, task, t => t.status === 'Done' ? '' : [_dn(t.title), t.customerId || ''].join('|'), d => 'an open task "' + d.title + '" for the same customer already exists')) return;
     const promise = editId ? fsUpdate('tasks', editId, task) : fsAdd('tasks', task);
     promise.then(() => { _endSave(); closeModal('taskModal'); showToast('Task saved!'); })
            .catch(e => { _endSave(); showToast('Error: ' + e.message, 'error'); });
