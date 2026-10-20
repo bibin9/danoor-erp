@@ -3207,6 +3207,7 @@ function buildDocPreview({ type, doc, settings, partyLabel, partyName, extraMeta
             </div>
         </div>
 
+        ${typeUpper.includes('INVOICE') ? '<div class="doc-seal-row"><img class="doc-seal" src="seal.png" alt="Company seal"></div>' : ''}
         <div class="doc-thanks">Thanks for your business</div>
         <div class="doc-terms">Terms & Conditions: This is a computer generated document and does not bear a signature.${footer ? '<br>' + footer : ''}</div>
     </div>`;
@@ -3441,6 +3442,8 @@ function getPrintStyles() {
     .doc-footer-col { width:48%; }
     .doc-footer-label { background:#3361b5; color:#fff; font-size:12px; font-weight:600; padding:5px 12px; display:inline-block; border-radius:3px; margin-bottom:8px; }
     .doc-footer-details { font-size:13px; color:#555; line-height:1.9; }
+    .doc-seal-row { display:flex; justify-content:flex-end; padding:0 60px 0; margin-top:6px; page-break-inside:avoid; break-inside:avoid; }
+    .doc-seal { width:118px; height:118px; object-fit:contain; transform:rotate(-7deg); opacity:.92; }
     .doc-thanks { text-align:center; font-size:15px; font-weight:600; color:#3361b5; margin:22px 0 8px; }
     .doc-terms { text-align:center; font-size:12px; color:#999; padding:0 30px 20px; line-height:1.6; }
     @media print { body{padding:0;} .doc-preview{max-width:100%;} }
